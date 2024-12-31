@@ -27,12 +27,12 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	input = linalg.normalize0(input)
 
 	// Q: is this efficient?
-	solids := get_solids(gameState)
+	solids := getSolids(gameState)
 	defer delete(solids)
 	moveActorX(player, solids[:], input.x)
 	moveActorY(player, solids[:], input.y)
 
-	fmt.printf("[playerUpdate] player: %v\n", player.position)
+	// fmt.printf("[playerUpdate] player: %v\n", player.position)
 }
 
 

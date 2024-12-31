@@ -53,6 +53,7 @@ main :: proc() {
 	playerId := addGameObject(Player{position = {0, 0, 0}, collider = {0, 0, 8, 16}})
 	if go := &gameState.gameObjects[playerId]; go != nil {
 		// Q: I don't really get whats happening here
+		// I think.. go^ deferences the pointer and then we cast it to a Player pointer
 		if player, ok := &(go^).(Player); ok {
 			gameState.player = player
 		}
@@ -90,7 +91,7 @@ draw :: proc() {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
 
-	rl.BeginMode2D(game_camera())
+	rl.BeginMode2D(gameCamera())
 	for _, go in gameState.gameObjects {
 		switch &go in go {
 		case Player:
@@ -103,16 +104,16 @@ draw :: proc() {
 
 	rl.EndMode2D()
 
-	rl.BeginMode2D(ui_camera())
+	rl.BeginMode2D(uiCamera())
 	rl.EndMode2D()
 	rl.EndDrawing()
 }
 
-game_camera :: proc() -> rl.Camera2D {
+gameCamera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
-	fmt.printf("player: %v\n", &gameState.player.position)
+	// fmt.printf("[gameCamera]player: %v\n", &gameState.player.position)
 	return {
 		zoom = h / PIXEL_WINDOW_HEIGHT,
 		target = {f32(gameState.player.position.x), f32(gameState.player.position.y)},
@@ -120,11 +121,11 @@ game_camera :: proc() -> rl.Camera2D {
 	}
 }
 
-ui_camera :: proc() -> rl.Camera2D {
+uiCamera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-get_solids :: proc(gameState: ^GameState) -> [dynamic]^Solid {
+getSolids :: proc(gameState: ^GameState) -> [dynamic]^Solid {
 	solids := make([dynamic]^Solid)
 	for _, &go in gameState.gameObjects {
 		if block, ok := &go.(Block); ok {
