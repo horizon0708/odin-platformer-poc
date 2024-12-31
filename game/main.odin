@@ -8,6 +8,7 @@ import "core:math/linalg"
 import rl "vendor:raylib"
 
 PIXEL_WINDOW_HEIGHT :: 180
+TILE_SIZE :: 8
 
 Game_Memory :: struct {
 	player_pos:  rl.Vector2,
@@ -50,7 +51,13 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 
 	// game setup
-	playerId := addGameObject(Player{position = {0, 0, 0}, collider = {0, 0, 8, 16}})
+	playerId := addGameObject(
+		Player {
+			position = {0, 0, 0},
+			collider = {0, 0, 8, 16},
+			jump = {height = 0.32, timeToPeak = 0.3, timeToDescent = 0.22},
+		},
+	)
 	if go := &gameState.gameObjects[playerId]; go != nil {
 		// Q: I don't really get whats happening here
 		// I think.. go^ deferences the pointer and then we cast it to a Player pointer
@@ -60,6 +67,12 @@ main :: proc() {
 	}
 	addGameObject(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
 	addGameObject(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
+	addGameObject(
+		Block {
+			position = {-10 * TILE_SIZE, 10 * TILE_SIZE, 0},
+			collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
+		},
+	)
 
 	for !rl.WindowShouldClose() {
 		{

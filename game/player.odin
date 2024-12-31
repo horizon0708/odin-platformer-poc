@@ -23,6 +23,9 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
 		input.x += 1
 	}
+	if rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.X) {
+		tryJump(player)
+	}
 
 	input = linalg.normalize0(input)
 
@@ -30,11 +33,47 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	solids := getSolids(gameState)
 	defer delete(solids)
 	moveActorX(player, solids[:], input.x)
-	moveActorY(player, solids[:], input.y)
+
+
+	// vertical movement
+	player.velocity.y += getGravity(player) * rl.GetFrameTime()
+
+	// fmt.printf("[playerUpdate] player velocity: %v\n", player.velocity)
+
+	moveActorY(player, solids[:], player.velocity.y)
 
 	// fmt.printf("[playerUpdate] player: %v\n", player.position)
 }
 
+
+getGravity :: proc(player: ^Player) -> f32 {
+	assert(player.jump.height > 0)
+	assert(player.jump.timeToPeak > 0)
+	assert(player.jump.timeToDescent > 0)
+
+	jumpGravity := (2.0 * player.jump.height) / (player.jump.timeToPeak * player.jump.timeToPeak)
+	fallGravity :=
+		(2.0 * player.jump.height) / (player.jump.timeToDescent * player.jump.timeToDescent)
+
+	if player.velocity.y < 0 {
+		return fallGravity
+	} else if rl.IsKeyDown(.SPACE) {
+		return jumpGravity
+	} else {
+		return jumpGravity * 2
+	}
+}
+
+getJumpVelocity :: proc(player: ^Player) -> f32 {
+	assert(player.jump.height > 0)
+	assert(player.jump.timeToPeak > 0)
+	return (-2.0 * player.jump.height) / player.jump.timeToPeak
+}
+
+tryJump :: proc(player: ^Player) {
+	// check if player is on the ground
+	player.velocity.y = getJumpVelocity(player)
+}
 
 playerDraw :: proc(player: ^Player, gameState: ^GameState) {
 	if gameState.debug.show_colliders {

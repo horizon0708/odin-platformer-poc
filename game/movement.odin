@@ -1,7 +1,7 @@
 package game
 
+import fmt "core:fmt"
 import "core:math"
-
 import rl "vendor:raylib"
 
 Solid :: struct {
@@ -13,11 +13,19 @@ Vector2I :: [2]i32
 Vector3I :: [3]i32
 Vector4I :: [4]i32
 
+Jump :: struct {
+	height:        f32,
+	timeToPeak:    f32,
+	timeToDescent: f32,
+}
+
 Actor :: struct {
+	velocity:  rl.Vector2,
 	position:  Vector3I,
 	remainder: rl.Vector2,
 	// {offsetX, offsetY, width, height}
 	collider:  Vector4I,
+	jump:      Jump,
 }
 
 moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
