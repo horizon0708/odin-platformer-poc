@@ -5,6 +5,9 @@ default: run
 run:
     odin run game
 
+watch:
+    ls **/*.odin | entr -cr just run
+
 # Clean build artifacts
 clean:
     rm -rf bin/*
