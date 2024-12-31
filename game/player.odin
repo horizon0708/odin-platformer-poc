@@ -2,6 +2,7 @@ package game
 
 import fmt "core:fmt"
 import "core:math/linalg"
+import "core:strings"
 import rl "vendor:raylib"
 
 Player :: struct {
@@ -32,11 +33,12 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	// Q: is this efficient?
 	solids := getSolids(gameState)
 	defer delete(solids)
+	setTouchingSolids(player, solids[:])
 	moveActorX(player, solids[:], input.x)
 
 
 	// vertical movement
-	if isColliding(player, .DOWN) && player.velocity.y > 0 {
+	if isGrounded(player) && player.velocity.y > 0 {
 		player.velocity.y = 0
 	} else {
 		player.velocity.y += getGravity(player) * rl.GetFrameTime()
@@ -62,7 +64,7 @@ getGravity :: proc(player: ^Player) -> f32 {
 	} else if rl.IsKeyDown(.SPACE) {
 		return jumpGravity
 	} else {
-		return jumpGravity * 2
+		return jumpGravity
 	}
 }
 
@@ -74,12 +76,31 @@ getJumpVelocity :: proc(player: ^Player) -> f32 {
 
 tryJump :: proc(player: ^Player) {
 	// check if player is on the ground
-	if isColliding(player, .DOWN) {
+	if isGrounded(player) && player.velocity.y == 0 {
 		player.velocity.y = getJumpVelocity(player)
+		fmt.printf("jump velocity: %v\n", player.velocity.y)
 	}
 }
 
+isGrounded :: proc(player: ^Player) -> bool {
+	return len(player.touching[.DOWN]) > 0
+}
+
+
 playerDraw :: proc(player: ^Player, gameState: ^GameState) {
+
+	solids := getSolids(gameState)
+	defer delete(solids)
+	debug_text := fmt.tprintf(
+		"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",
+		player.velocity,
+		player.touching[.UP],
+		player.touching[.DOWN],
+	)
+	ctext := strings.clone_to_cstring(debug_text)
+	rl.DrawText(ctext, 0, 0, 5, rl.WHITE)
+
+
 	if gameState.debug.show_colliders {
 		rl.DrawRectangleLines(
 			player.position.x + player.collider.x,
@@ -89,4 +110,9 @@ playerDraw :: proc(player: ^Player, gameState: ^GameState) {
 			rl.GREEN,
 		)
 	}
+}
+
+writeDebugText :: proc(text: string) {
+	ctext := strings.clone_to_cstring(text)
+	rl.DrawText(ctext, 0, 0, 5, rl.WHITE)
 }

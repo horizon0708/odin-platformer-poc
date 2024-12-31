@@ -21,6 +21,13 @@ Direction :: enum {
 	DOWN,
 }
 
+DirectionVector :: [Direction]Vector2I {
+	.LEFT  = {-1, 0},
+	.RIGHT = {1, 0},
+	.UP    = {0, -1},
+	.DOWN  = {0, 1},
+}
+
 Jump :: struct {
 	height:        f32,
 	timeToPeak:    f32,
@@ -43,6 +50,7 @@ Actor :: struct {
 	collider:  Vector4I,
 	jump:      Jump,
 	colliding: CollisionInfo,
+	touching:  map[Direction][dynamic]i32,
 }
 
 moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
@@ -56,8 +64,8 @@ moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
 			if (move == 0) {
 				break
 			}
+			// Q: do we need this when we now have touching field?
 			colliding_solids := getCollidingSolidIds(self, solids, {sign, 0})
-			setColliding(self, {sign, 0}, colliding_solids)
 			if len(colliding_solids) == 0 {
 				self.position.x += sign
 				move -= sign
@@ -82,9 +90,7 @@ moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
 				break
 			}
 			colliding_solids := getCollidingSolidIds(self, solids, {0, sign})
-			setColliding(self, {0, sign}, colliding_solids)
 			if len(colliding_solids) == 0 {
-
 				self.position.y += sign
 				move -= sign
 			} else {
@@ -95,24 +101,17 @@ moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
 	}
 }
 
-setColliding :: proc(self: ^Actor, direction: Vector2I, solids: [dynamic]i32) {
-	// hmm this isn't exhuastive...
-
-	switch direction {
-	case {0, -1}:
-		delete(self.colliding.top)
-		self.colliding.top = solids
-	case {0, 1}:
-		delete(self.colliding.bottom)
-		self.colliding.bottom = solids
-	case {-1, 0}:
-		delete(self.colliding.left)
-		self.colliding.left = solids
-	case {1, 0}:
-		delete(self.colliding.right)
-		self.colliding.right = solids
+// Touching - when the actor is touching a solid in the given direction
+// Colliding - when the actor is actively trying to move into a solid in the given direction
+setTouchingSolids :: proc(self: ^Actor, solids: []^Solid) {
+	for direction in Direction {
+		// Q: why do I have to do this?
+		vectors := DirectionVector
+		dir_vec := vectors[direction]
+		self.touching[direction] = getCollidingSolidIds(self, solids, dir_vec)
 	}
 }
+
 
 isColliding :: proc(self: ^Actor, direction: Direction) -> bool {
 	switch direction {
@@ -127,22 +126,6 @@ isColliding :: proc(self: ^Actor, direction: Direction) -> bool {
 	}
 	return false
 }
-
-/// Returns true if the actor will collide with any solid in the given direction
-// isColliding :: proc(self: ^Actor, solids: []^Solid, direction: Vector2I) -> bool {
-// 	// Create a rectangle offset in the direction we want to check
-// 	dir_vec := Vector3I{direction.x, direction.y, 0}
-// 	check_rect := toRect(self.position + dir_vec, self.collider)
-
-// 	// Check for collision with any solid
-// 	for solid in solids {
-// 		solid_rect := toRect(solid.position, solid.collider)
-// 		if rl.CheckCollisionRecs(check_rect, solid_rect) {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
 
 
 getCollidingSolidIds :: proc(self: ^Actor, solids: []^Solid, direction: Vector2I) -> [dynamic]i32 {
