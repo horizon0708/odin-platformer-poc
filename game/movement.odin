@@ -20,7 +20,7 @@ Actor :: struct {
 	collider:  Vector4I,
 }
 
-moveActorX :: proc(self: ^Actor, solids: []Solid, x: f32) {
+moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
 	self.remainder.x += x
 	move := i32(math.round(self.remainder.x))
 
@@ -42,7 +42,9 @@ moveActorX :: proc(self: ^Actor, solids: []Solid, x: f32) {
 	}
 }
 
-moveActorY :: proc(self: ^Actor, solids: []Solid, y: f32) {
+// TODO: bitset for collision
+
+moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
 	self.remainder.y += y
 	move := i32(math.round(self.remainder.y))
 
@@ -64,26 +66,26 @@ moveActorY :: proc(self: ^Actor, solids: []Solid, y: f32) {
 }
 
 /// Returns true if the actor will collide with any solid in the given direction
-isColliding :: proc(self: ^Actor, solids: []Solid, direction: Vector2I) -> bool {
+isColliding :: proc(self: ^Actor, solids: []^Solid, direction: Vector2I) -> bool {
 	// Create a rectangle offset in the direction we want to check
-	check_rect := rl.Rectangle {
-		x      = f32(self.position.x + direction.x),
-		y      = f32(self.position.y + direction.y),
-		width  = f32(self.collider[2]),
-		height = f32(self.collider[3]),
-	}
+	dir_vec := Vector3I{direction.x, direction.y, 0}
+	check_rect := toRect(self.position + dir_vec, self.collider)
 
 	// Check for collision with any solid
 	for solid in solids {
-		solid_rect := rl.Rectangle {
-			x      = f32(solid.position.x),
-			y      = f32(solid.position.y),
-			width  = f32(solid.collider[2]),
-			height = f32(solid.collider[3]),
-		}
+		solid_rect := toRect(solid.position, solid.collider)
 		if rl.CheckCollisionRecs(check_rect, solid_rect) {
 			return true
 		}
 	}
 	return false
+}
+
+toRect :: proc(position: Vector3I, collider: Vector4I) -> rl.Rectangle {
+	return {
+		x = f32(position.x + collider.x),
+		y = f32(position.y + collider.y),
+		width = f32(collider.z),
+		height = f32(collider.w),
+	}
 }
