@@ -41,8 +41,9 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	if isGrounded(player) && player.velocity.y > 0 {
 		player.velocity.y = 0
 	} else {
-		player.velocity.y += getGravity(player) * rl.GetFrameTime()
+		player.velocity.y += (getGravity(player) * rl.GetFrameTime())
 	}
+
 
 	// fmt.printf("[playerUpdate] player velocity: %v\n", player.velocity)
 
@@ -64,7 +65,7 @@ getGravity :: proc(player: ^Player) -> f32 {
 	} else if rl.IsKeyDown(.SPACE) {
 		return jumpGravity
 	} else {
-		return jumpGravity
+		return jumpGravity * 2
 	}
 }
 
@@ -76,7 +77,7 @@ getJumpVelocity :: proc(player: ^Player) -> f32 {
 
 tryJump :: proc(player: ^Player) {
 	// check if player is on the ground
-	if isGrounded(player) && player.velocity.y == 0 {
+	if isGrounded(player) {
 		player.velocity.y = getJumpVelocity(player)
 		fmt.printf("jump velocity: %v\n", player.velocity.y)
 	}

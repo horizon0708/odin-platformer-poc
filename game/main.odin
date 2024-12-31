@@ -55,12 +55,12 @@ main :: proc() {
 		Player {
 			position = {0, 0, 0},
 			collider = {0, 0, 8, 16},
-			jump = {height = 20, timeToPeak = 1, timeToDescent = 0.22},
+			jump = {height = 0.23, timeToPeak = 0.5, timeToDescent = 0.22},
 		},
 	)
 	if go := &gameState.gameObjects[playerId]; go != nil {
 		// Q: I don't really get whats happening here
-		// I think.. go^ deferences the pointer and then we cast it to a Player pointer
+		// I think.. go^ dereferences the pointer and then we cast it to a Player pointer
 		if player, ok := &(go^).(Player); ok {
 			gameState.player = player
 		}
