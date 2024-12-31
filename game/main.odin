@@ -50,14 +50,15 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 
 	// game setup
-	playerId := addGameObject(Player{position = {0, 0, 0}, collider = {0, 0, 10, 20}})
+	playerId := addGameObject(Player{position = {0, 0, 0}, collider = {0, 0, 8, 16}})
 	if go := &gameState.gameObjects[playerId]; go != nil {
 		// Q: I don't really get whats happening here
 		if player, ok := &(go^).(Player); ok {
 			gameState.player = player
 		}
 	}
-	addGameObject(Block{position = {20, 20, 0}, collider = {0, 0, 20, 20}})
+	addGameObject(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
+	addGameObject(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
 
 	for !rl.WindowShouldClose() {
 		{
@@ -87,7 +88,7 @@ update :: proc() {
 
 draw :: proc() {
 	rl.BeginDrawing()
-	rl.ClearBackground(rl.GRAY)
+	rl.ClearBackground(rl.BLACK)
 
 	rl.BeginMode2D(game_camera())
 	for _, go in gameState.gameObjects {
