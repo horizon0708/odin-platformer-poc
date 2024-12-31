@@ -84,6 +84,13 @@ main :: proc() {
 
 addGameObject :: proc(gameObject: GameObject) -> i32 {
 	idCounter += 1
+
+	switch &gameObject in gameObject {
+	case Player:
+		gameObject.id = idCounter
+	case Block:
+		gameObject.id = idCounter
+	}
 	gameState.gameObjects[idCounter] = gameObject
 	return idCounter
 }

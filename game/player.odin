@@ -36,13 +36,15 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 
 
 	// vertical movement
-	player.velocity.y += getGravity(player) * rl.GetFrameTime()
+	if isColliding(player, .DOWN) && player.velocity.y > 0 {
+		player.velocity.y = 0
+	} else {
+		player.velocity.y += getGravity(player) * rl.GetFrameTime()
+	}
 
 	// fmt.printf("[playerUpdate] player velocity: %v\n", player.velocity)
 
 	moveActorY(player, solids[:], player.velocity.y)
-
-	// fmt.printf("[playerUpdate] player: %v\n", player.position)
 }
 
 
@@ -72,7 +74,9 @@ getJumpVelocity :: proc(player: ^Player) -> f32 {
 
 tryJump :: proc(player: ^Player) {
 	// check if player is on the ground
-	player.velocity.y = getJumpVelocity(player)
+	if isColliding(player, .DOWN) {
+		player.velocity.y = getJumpVelocity(player)
+	}
 }
 
 playerDraw :: proc(player: ^Player, gameState: ^GameState) {
