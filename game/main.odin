@@ -19,21 +19,14 @@ DebugOptions :: struct {
 	show_colliders: bool,
 }
 
-GameObject :: union {
-	Player,
-	Block,
-}
-
 Entity :: struct {
-	id:                i32,
-	on_event_received: proc(self: ^GameObject),
+	id: i32,
 }
 
 GameState :: struct {
-	player:      ^Player,
-	gameObjects: map[i32]GameObject,
-	debug:       DebugOptions,
-	// pubsub:      PubSub,
+	player: Player,
+	blocks: map[i32]Block,
+	debug:  DebugOptions,
 }
 gameState: ^GameState
 idCounter: i32 = 0
@@ -41,7 +34,6 @@ idCounter: i32 = 0
 main :: proc() {
 	gameState = new(GameState)
 	gameState^ = GameState {
-		gameObjects = {},
 		debug = {show_colliders = true},
 	}
 	defer free(gameState)
@@ -57,23 +49,14 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 
 	// game setup
-	playerId := addGameObject(
-		Player {
-			position = {0, 0, 0},
-			collider = {0, 0, 8, 16},
-			jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
-		},
-	)
-	if go := &gameState.gameObjects[playerId]; go != nil {
-		// Q: I don't really get whats happening here
-		// I think.. go^ dereferences the pointer and then we cast it to a Player pointer
-		if player, ok := &(go^).(Player); ok {
-			gameState.player = player
-		}
+	gameState.player = Player {
+		position = {0, 0, 0},
+		collider = {0, 0, 8, 16},
+		jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
 	}
-	addGameObject(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
-	addGameObject(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
-	addGameObject(
+	addBlock(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
+	addBlock(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
+	addBlock(
 		Block {
 			position = {-10 * TILE_SIZE, 10 * TILE_SIZE, 0},
 			collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
@@ -88,29 +71,19 @@ main :: proc() {
 	}
 }
 
-addGameObject :: proc(gameObject: GameObject) -> i32 {
+addBlock :: proc(block: Block) -> i32 {
 	idCounter += 1
-
-	switch &gameObject in gameObject {
-	case Player:
-		gameObject.id = idCounter
-	case Block:
-		gameObject.id = idCounter
-	}
-	gameState.gameObjects[idCounter] = gameObject
+	gameState.blocks[idCounter] = block
 	return idCounter
 }
 
 
 update :: proc() {
-	for _, &go in gameState.gameObjects {
-		switch &go in go {
-		case Player:
-			playerUpdate(&go, gameState)
-		case Block:
-		// noop
-		}
-	}
+	playerUpdate(&gameState.player, gameState)
+
+	// for _, &block in gameState.blocks {
+	// 	blockUpdate(&block, gameState)
+	// }
 }
 
 draw :: proc() {
@@ -118,15 +91,10 @@ draw :: proc() {
 	rl.ClearBackground(rl.BLACK)
 
 	rl.BeginMode2D(gameCamera())
-	for _, go in gameState.gameObjects {
-		switch &go in go {
-		case Player:
-			playerDraw(&go, gameState)
-		case Block:
-			blockDraw(&go, gameState)
-		}
+	playerDraw(&gameState.player, gameState)
+	for _, &block in gameState.blocks {
+		blockDraw(&block, gameState)
 	}
-
 
 	rl.EndMode2D()
 
@@ -153,10 +121,8 @@ uiCamera :: proc() -> rl.Camera2D {
 
 getSolids :: proc(gameState: ^GameState) -> [dynamic]^Solid {
 	solids := make([dynamic]^Solid)
-	for _, &go in gameState.gameObjects {
-		if block, ok := &go.(Block); ok {
-			append_elem(&solids, &block.solid)
-		}
+	for _, &block in gameState.blocks {
+		append_elem(&solids, &block.solid)
 	}
 	return solids
 }
