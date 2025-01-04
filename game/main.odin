@@ -24,10 +24,16 @@ GameObject :: union {
 	Block,
 }
 
+Entity :: struct {
+	id:                i32,
+	on_event_received: proc(self: ^GameObject),
+}
+
 GameState :: struct {
 	player:      ^Player,
 	gameObjects: map[i32]GameObject,
 	debug:       DebugOptions,
+	// pubsub:      PubSub,
 }
 gameState: ^GameState
 idCounter: i32 = 0

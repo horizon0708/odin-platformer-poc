@@ -5,9 +5,9 @@ import "core:math"
 import rl "vendor:raylib"
 
 Solid :: struct {
-	id:       i32,
-	position: Vector3I,
-	collider: Vector4I,
+	using entity: Entity,
+	position:     Vector3I,
+	collider:     Vector4I,
 }
 
 Vector2I :: [2]i32
@@ -42,7 +42,6 @@ CollisionInfo :: struct {
 }
 
 Actor :: struct {
-	id:        i32,
 	velocity:  rl.Vector2,
 	position:  Vector3I,
 	remainder: rl.Vector2,
