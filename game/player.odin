@@ -6,7 +6,8 @@ import "core:strings"
 import rl "vendor:raylib"
 
 Player :: struct {
-	using actor: Actor,
+	using actor:    Actor,
+	jump_held_down: bool,
 }
 
 playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
@@ -27,6 +28,10 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	}
 	if jumpKeyPressed() {
 		tryJump(player)
+	}
+
+	if player.jump_held_down && jumpKeyReleased() {
+		player.jump_held_down = false
 	}
 
 	input = linalg.normalize0(input)
@@ -53,6 +58,10 @@ jumpKeyPressed :: proc() -> bool {
 	return rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.X)
 }
 
+jumpKeyReleased :: proc() -> bool {
+	return rl.IsKeyReleased(.SPACE) || rl.IsKeyReleased(.X)
+}
+
 
 getGravity :: proc(player: ^Player) -> f32 {
 	assert(player.jump.height > 0)
@@ -65,7 +74,7 @@ getGravity :: proc(player: ^Player) -> f32 {
 
 	if player.velocity.y > 0 {
 		return fallGravity
-	} else if jumpKeyPressed() {
+	} else if player.jump_held_down {
 		return jumpGravity
 	} else {
 		return jumpGravity * 2
@@ -82,6 +91,7 @@ tryJump :: proc(player: ^Player) {
 	// check if player is on the ground
 	if isGrounded(player) {
 		player.velocity.y = getJumpVelocity(player)
+		player.jump_held_down = true
 	}
 }
 
@@ -91,7 +101,6 @@ isGrounded :: proc(player: ^Player) -> bool {
 
 
 playerDraw :: proc(player: ^Player, gameState: ^GameState) {
-
 	solids := getSolids(gameState)
 	defer delete(solids)
 	debug_text := fmt.tprintf(
