@@ -55,7 +55,7 @@ main :: proc() {
 		Player {
 			position = {0, 0, 0},
 			collider = {0, 0, 8, 16},
-			jump = {height = 0.23, timeToPeak = 0.5, timeToDescent = 0.22},
+			jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
 		},
 	)
 	if go := &gameState.gameObjects[playerId]; go != nil {

@@ -11,6 +11,7 @@ Player :: struct {
 
 playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	input: rl.Vector2
+	dt := rl.GetFrameTime()
 
 	if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
 		input.y -= 1
@@ -24,7 +25,7 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
 		input.x += 1
 	}
-	if rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.X) {
+	if jumpKeyPressed() {
 		tryJump(player)
 	}
 
@@ -41,13 +42,15 @@ playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	if isGrounded(player) && player.velocity.y > 0 {
 		player.velocity.y = 0
 	} else {
-		player.velocity.y += (getGravity(player) * rl.GetFrameTime())
+		player.velocity.y += (getGravity(player) * dt)
 	}
 
 
-	// fmt.printf("[playerUpdate] player velocity: %v\n", player.velocity)
+	moveActorY(player, solids[:], player.velocity.y * dt)
+}
 
-	moveActorY(player, solids[:], player.velocity.y)
+jumpKeyPressed :: proc() -> bool {
+	return rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.X)
 }
 
 
@@ -60,9 +63,9 @@ getGravity :: proc(player: ^Player) -> f32 {
 	fallGravity :=
 		(2.0 * player.jump.height) / (player.jump.timeToDescent * player.jump.timeToDescent)
 
-	if player.velocity.y < 0 {
+	if player.velocity.y > 0 {
 		return fallGravity
-	} else if rl.IsKeyDown(.SPACE) {
+	} else if jumpKeyPressed() {
 		return jumpGravity
 	} else {
 		return jumpGravity * 2
@@ -79,7 +82,6 @@ tryJump :: proc(player: ^Player) {
 	// check if player is on the ground
 	if isGrounded(player) {
 		player.velocity.y = getJumpVelocity(player)
-		fmt.printf("jump velocity: %v\n", player.velocity.y)
 	}
 }
 
