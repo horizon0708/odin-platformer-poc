@@ -83,7 +83,7 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		isGroundedNow := isGrounded(&movement)
 		if isGroundedNow {
 			timerStop(&movement.jump.coyoteTimer)
-		} else if movement.wasGrounded && !isGroundedNow && movement.velocity.y > 0 {
+		} else if movement.wasGrounded && !isGroundedNow {
 			timerStart(&movement.jump.coyoteTimer, &movement, proc(self: ^Actor) {
 				fmt.printf("coyote timer started\n")
 			})

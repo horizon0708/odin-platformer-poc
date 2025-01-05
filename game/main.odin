@@ -2,6 +2,7 @@ package game
 
 // core
 import fmt "core:fmt"
+import "core:math"
 import "core:math/linalg"
 import "core:strings"
 
@@ -144,6 +145,20 @@ draw :: proc() {
 					if isCoyoteTimeActive(&movement) {
 						rl.DrawCircle(movement.position.x, movement.position.y, 1.5, rl.RED)
 					}
+
+
+					debug_text := fmt.tprintf(
+						"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",
+						rl.Vector2 {
+							math.round(movement.velocity.x),
+							math.round(movement.velocity.y),
+						},
+						movement.touching[.UP],
+						movement.touching[.DOWN],
+					)
+					ctext := strings.clone_to_cstring(debug_text)
+					textPosition := movement.position + {-100, -75, 0}
+					rl.DrawText(ctext, textPosition.x, textPosition.y, 1, rl.WHITE)
 				}
 
 				rl.DrawRectangle(
@@ -166,14 +181,7 @@ draw :: proc() {
 
 
 	}
-	debug_text := fmt.tprintf(
-		"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",
-		gameState.player.movement.(Actor).velocity,
-		gameState.player.movement.(Actor).touching[.UP],
-		gameState.player.movement.(Actor).touching[.DOWN],
-	)
-	ctext := strings.clone_to_cstring(debug_text)
-	rl.DrawText(ctext, 0, 0, 5, rl.WHITE)
+
 
 	rl.EndMode2D()
 
