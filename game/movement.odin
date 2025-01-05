@@ -174,7 +174,9 @@ moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
 				self.position.y += sign
 				move -= sign
 			} else {
-
+				// on hitting something, y velocity is reset so that
+				// hitting on the head makes you immediately fall
+				self.velocity.y = 0
 				break
 			}
 		}
