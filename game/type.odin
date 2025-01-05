@@ -24,7 +24,7 @@ getTypeName :: proc(entity: ^GameEntity) -> string {
 	case Block:
 		return "block"
 	case:
-		// assert(false, fmt.tprintf("unknown type: %v", type))
+		assert(false, fmt.tprintf("unknown type: %v", type))
 		return ""
 	}
 }

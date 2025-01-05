@@ -10,7 +10,7 @@ MovementVariant :: union {
 }
 
 Solid :: struct {
-	position:      Vector3I,
+	position:      Vector2I,
 	direction:     rl.Vector2,
 	velocity:      rl.Vector2,
 	collider:      Vector4I,
@@ -50,7 +50,7 @@ CollisionInfo :: struct {
 }
 
 Actor :: struct {
-	position:      Vector3I,
+	position:      Vector2I,
 	direction:     rl.Vector2,
 	velocity:      rl.Vector2,
 	remainder:     rl.Vector2,
@@ -81,16 +81,14 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 	switch &movement in entity.movement {
 	case Actor:
 		direction: rl.Vector2
-		if input, ok := entity.input.(Input); ok {
-			direction.x = input.directionalInput.x
-		}
+
 		// horizontal movement
 		solids := getSolids(gameState)
 		defer delete(solids)
 		setTouchingSolids(&movement, solids[:])
-		moveActorX(&movement, solids[:], direction.x * movement.velocity.x * dt)
+		moveActorX(&movement, solids[:], movement.direction.x * movement.velocity.x * dt)
 
-		timerUpdate(&movement.jump.coyoteTimer, &movement, dt, proc(entity: ^Actor) {
+		timerUpdate(&movement.jump.coyoteTimer, &movement, proc(entity: ^Actor) {
 			fmt.printf("coyote timer complete\n")
 		})
 
@@ -250,8 +248,7 @@ getCollidingSolidIds :: proc(
 	solids: []^GameEntity,
 	direction: Vector2I,
 ) -> [dynamic]i32 {
-	dir_vec := Vector3I{direction.x, direction.y, 0}
-	check_rect := toRect(self.position + dir_vec, self.collider)
+	check_rect := toRect(self.position + direction, self.collider)
 
 	colliding_solids := [dynamic]i32{}
 	for gameEntity in solids {
@@ -264,7 +261,7 @@ getCollidingSolidIds :: proc(
 	return colliding_solids
 }
 
-toRect :: proc(position: Vector3I, collider: Vector4I) -> rl.Rectangle {
+toRect :: proc(position: Vector2I, collider: Vector4I) -> rl.Rectangle {
 	return {
 		x = f32(position.x + collider.x),
 		y = f32(position.y + collider.y),

@@ -7,9 +7,8 @@ InputVariant :: union #no_nil {
 }
 
 Input :: struct {
-	jumpHeldDown:     bool,
-	jumpKeyPressed:   bool,
-	directionalInput: rl.Vector2,
+	jumpHeldDown:   bool,
+	jumpKeyPressed: bool,
 }
 
 NoInput :: struct {
@@ -56,9 +55,8 @@ updateInput :: proc(
 			entity.jumpHeldDown^ = false
 		}
 
-		entity.direction^ = directionalInput
 		// no need to normalize as we separate horizontal and vertical movement
-		input.directionalInput = directionalInput
+		entity.direction^ = directionalInput
 		// input.directionalInput = linalg.normalize0(directionalInput)
 	}
 }

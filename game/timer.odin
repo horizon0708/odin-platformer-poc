@@ -1,6 +1,7 @@
 package game
 
 import fmt "core:fmt"
+import rl "vendor:raylib"
 
 TimerType :: enum {
 	OneShot,
@@ -14,7 +15,10 @@ Timer :: struct {
 	type:        TimerType,
 }
 
-timerUpdate :: proc(timer: ^Timer, owner: ^$T, dt: f32, onComplete: proc(self: ^T)) {
+timerUpdate :: proc(timer: ^Timer, owner: ^$T, onComplete: proc(self: ^T)) {
+	assert(onComplete != nil)
+	dt := rl.GetFrameTime()
+
 	if !timer.running {
 		return
 	}
@@ -34,7 +38,9 @@ timerStart :: proc(timer: ^Timer, owner: ^$T, onStart: proc(self: ^T)) {
 
 	timer.running = true
 	timer.currentTime = 0
-	onStart(owner)
+	if onStart != nil {
+		onStart(owner)
+	}
 }
 
 timerPause :: proc(timer: ^Timer) {

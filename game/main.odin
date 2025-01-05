@@ -74,35 +74,31 @@ main :: proc() {
 				},
 			},
 			input = Input{},
+			routine = Routine {
+				repeat = true,
+				steps = {
+					MoveToPosition{to = {32, 64}},
+					HoldPosition{duration = 1},
+					MoveToPosition{to = {0, 64}},
+					HoldPosition{duration = 1},
+				},
+			},
 		},
 	)
-	fmt.println("!!player:", player)
 
 	// game setup
 	gameState.player = player
 
 	addGameEntity(
-		{
-			movement = Solid {
-				position = {16, 24, 0},
-				collider = {0, 0, 8, 8},
-				colliderColor = rl.RED,
-			},
-		},
+		{movement = Solid{position = {16, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
+	)
+	addGameEntity(
+		{movement = Solid{position = {32, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
 	)
 	addGameEntity(
 		{
 			movement = Solid {
-				position = {32, 24, 0},
-				collider = {0, 0, 8, 8},
-				colliderColor = rl.RED,
-			},
-		},
-	)
-	addGameEntity(
-		{
-			movement = Solid {
-				position = {-10 * TILE_SIZE, 10 * TILE_SIZE, 0},
+				position = {-10 * TILE_SIZE, 10 * TILE_SIZE},
 				collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
 				colliderColor = rl.RED,
 			},
@@ -119,7 +115,6 @@ main :: proc() {
 
 
 addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
-	fmt.println("addGameEntity", entity)
 	idCounter += 1
 
 	gameState.entities[idCounter] = entity
@@ -141,6 +136,7 @@ update :: proc() {
 	for _, &entity in gameState.entities {
 		// update input
 		updateInput(&entity, gameState, onJumpKeyPressed = onJumpKeyPressed)
+		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
 	}
 
@@ -171,7 +167,7 @@ draw :: proc() {
 						movement.touching[.DOWN],
 					)
 					ctext := strings.clone_to_cstring(debug_text)
-					textPosition := movement.position + {-100, -75, 0}
+					textPosition := movement.position + {-100, -75}
 					rl.DrawText(ctext, textPosition.x, textPosition.y, 1, rl.WHITE)
 				}
 
@@ -208,7 +204,6 @@ gameCamera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
-	// fmt.printf("[gameCamera]player: %v\n", &gameState.player.position)
 	player_movement := &gameState.player.movement.(Actor)
 
 	return {
