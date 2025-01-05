@@ -129,7 +129,6 @@ getGravity :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
 	extendJump := false
 	if input, ok := input.(Input); ok {
 		extendJump = input.jumpHeldDown
-		// fmt.printf("extendJump: %v\n", extendJump)
 	}
 
 	if movement.velocity.y >= 0 {
