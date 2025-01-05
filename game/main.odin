@@ -53,6 +53,7 @@ main :: proc() {
 		position = {0, 0, 0},
 		collider = {0, 0, 8, 16},
 		jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
+		test_timer = {time = 1, running = true, type = .OneShot},
 	}
 	addBlock(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
 	addBlock(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})

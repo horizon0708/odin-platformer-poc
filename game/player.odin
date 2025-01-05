@@ -10,11 +10,18 @@ Player :: struct {
 	using entity:   Entity,
 	using actor:    Actor,
 	jump_held_down: bool,
+	test_timer:     Timer,
 }
 
 playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	input: rl.Vector2
 	dt := rl.GetFrameTime()
+
+	timerUpdate(&player.test_timer, player, dt, proc(self: ^Player) {
+		fmt.printf("test timer complete\n")
+		fmt.printf("player position: %v\n", self.position)
+	})
+
 
 	if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
 		input.y -= 1
