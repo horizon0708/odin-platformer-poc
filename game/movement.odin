@@ -10,8 +10,9 @@ MovementVariant :: union {
 }
 
 Solid :: struct {
-	using entity:  Entity,
 	position:      Vector3I,
+	direction:     rl.Vector2,
+	velocity:      rl.Vector2,
 	collider:      Vector4I,
 	colliderColor: rl.Color,
 }
@@ -49,8 +50,9 @@ CollisionInfo :: struct {
 }
 
 Actor :: struct {
-	velocity:      rl.Vector2,
 	position:      Vector3I,
+	direction:     rl.Vector2,
+	velocity:      rl.Vector2,
 	remainder:     rl.Vector2,
 	collider:      Vector4I, // {offsetX, offsetY, width, height}
 	colliderColor: rl.Color,
@@ -58,6 +60,19 @@ Actor :: struct {
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
 	wasGrounded:   bool,
+}
+
+initMovement :: proc(entity: ^GameEntity) {
+	switch &movement in entity.movement {
+	case Actor:
+		entity.position = &movement.position
+		entity.velocity = &movement.velocity
+		entity.direction = &movement.direction
+	case Solid:
+		entity.position = &movement.position
+		entity.velocity = &movement.velocity
+		entity.direction = &movement.direction
+	}
 }
 
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
@@ -103,12 +118,16 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 	}
 }
 
-onJumpKeyPressed :: proc(self: ^GameEntity) {
-	movement := &self.movement.(Actor)
+onJumpKeyPressed :: proc(self: ^GameEntity) -> bool {
+	movement := (&(self.movement.(Actor))) or_return
+
 	if isGrounded(movement) || isCoyoteTimeActive(movement) {
 		movement.velocity.y = getJumpVelocity(movement)
 		timerStop(&movement.jump.coyoteTimer)
+		return true
 	}
+
+	return false
 }
 
 isCoyoteTimeActive :: proc(movement: ^Actor) -> bool {
@@ -149,7 +168,7 @@ getJumpVelocity :: proc(movement: ^Actor) -> f32 {
 	return (-2.0 * movement.jump.height) / movement.jump.timeToPeak
 }
 
-moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
+moveActorX :: proc(self: ^Actor, solids: []^GameEntity, x: f32) {
 	self.remainder.x += x
 	move := i32(math.round(self.remainder.x))
 
@@ -174,7 +193,7 @@ moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
 
 // TODO: bitset for collision
 
-moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
+moveActorY :: proc(self: ^Actor, solids: []^GameEntity, y: f32) {
 	self.remainder.y += y
 	move := i32(math.round(self.remainder.y))
 
@@ -201,7 +220,7 @@ moveActorY :: proc(self: ^Actor, solids: []^Solid, y: f32) {
 
 // Touching - when the actor is touching a solid in the given direction
 // Colliding - when the actor is actively trying to move into a solid in the given direction
-setTouchingSolids :: proc(self: ^Actor, solids: []^Solid) {
+setTouchingSolids :: proc(self: ^Actor, solids: []^GameEntity) {
 	for direction in Direction {
 		// Q: why do I have to do this?
 		vectors := DirectionVector
@@ -226,15 +245,20 @@ isColliding :: proc(self: ^Actor, direction: Direction) -> bool {
 }
 
 
-getCollidingSolidIds :: proc(self: ^Actor, solids: []^Solid, direction: Vector2I) -> [dynamic]i32 {
+getCollidingSolidIds :: proc(
+	self: ^Actor,
+	solids: []^GameEntity,
+	direction: Vector2I,
+) -> [dynamic]i32 {
 	dir_vec := Vector3I{direction.x, direction.y, 0}
 	check_rect := toRect(self.position + dir_vec, self.collider)
 
 	colliding_solids := [dynamic]i32{}
-	for solid in solids {
+	for gameEntity in solids {
+		solid := (&(gameEntity.movement.(Solid))) or_continue
 		solid_rect := toRect(solid.position, solid.collider)
 		if rl.CheckCollisionRecs(check_rect, solid_rect) {
-			append_elem(&colliding_solids, solid.id)
+			append_elem(&colliding_solids, gameEntity.id)
 		}
 	}
 	return colliding_solids

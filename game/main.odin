@@ -22,10 +22,12 @@ DebugOptions :: struct {
 }
 
 GameEntity :: struct {
-	id:       i32,
-	type:     TypeVariant,
-	movement: MovementVariant,
-	input:    InputVariant,
+	id:           i32,
+	using shared: SharedState,
+	type:         TypeVariant,
+	movement:     MovementVariant,
+	input:        InputVariant,
+	routine:      RoutineVariant,
 }
 
 Entity :: struct {
@@ -74,6 +76,7 @@ main :: proc() {
 			input = Input{},
 		},
 	)
+	fmt.println("!!player:", player)
 
 	// game setup
 	gameState.player = player
@@ -114,12 +117,23 @@ main :: proc() {
 	}
 }
 
+
 addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
+	fmt.println("addGameEntity", entity)
 	idCounter += 1
-	entity := entity
-	entity.id = idCounter
+
 	gameState.entities[idCounter] = entity
-	return idCounter, &gameState.entities[idCounter]
+	stored_entity := &gameState.entities[idCounter]
+	stored_entity.id = idCounter
+
+	initMovement(stored_entity)
+	initInput(stored_entity)
+
+	assert(stored_entity.position != nil)
+	assert(stored_entity.velocity != nil)
+	assert(stored_entity.direction != nil)
+	assert(stored_entity.jumpHeldDown != nil)
+	return idCounter, stored_entity
 }
 
 update :: proc() {
@@ -208,11 +222,11 @@ uiCamera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
 }
 
-getSolids :: proc(gameState: ^GameState) -> [dynamic]^Solid {
-	solids := make([dynamic]^Solid)
+getSolids :: proc(gameState: ^GameState) -> [dynamic]^GameEntity {
+	solids := make([dynamic]^GameEntity)
 	for _, &entity in gameState.entities {
 		if solid, ok := &entity.movement.(Solid); ok {
-			append_elem(&solids, solid)
+			append_elem(&solids, &entity)
 		}
 	}
 	return solids

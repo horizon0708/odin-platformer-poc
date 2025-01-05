@@ -1,7 +1,7 @@
 package game
 import rl "vendor:raylib"
 
-InputVariant :: union {
+InputVariant :: union #no_nil {
 	NoInput,
 	Input,
 }
@@ -12,12 +12,23 @@ Input :: struct {
 	directionalInput: rl.Vector2,
 }
 
-NoInput :: struct {}
+NoInput :: struct {
+	jumpHeldDown: bool,
+}
+
+initInput :: proc(entity: ^GameEntity) {
+	switch &input in entity.input {
+	case NoInput:
+		entity.jumpHeldDown = &input.jumpHeldDown
+	case Input:
+		entity.jumpHeldDown = &input.jumpHeldDown
+	}
+}
 
 updateInput :: proc(
 	entity: ^GameEntity,
 	_gameState: ^GameState,
-	onJumpKeyPressed: proc(self: ^GameEntity),
+	onJumpKeyPressed: proc(self: ^GameEntity) -> bool,
 ) {
 	if input, ok := &entity.input.(Input); ok {
 		directionalInput: rl.Vector2
@@ -36,14 +47,16 @@ updateInput :: proc(
 
 		input.jumpKeyPressed = jumpKeyPressed()
 
-		if movement, ok := entity.movement.(Actor); ok && input.jumpKeyPressed {
+		if input.jumpKeyPressed {
 			onJumpKeyPressed(entity)
-			input.jumpHeldDown = true
+			entity.jumpHeldDown^ = true
 		}
 
-		if input.jumpHeldDown && jumpKeyReleased() {
-			input.jumpHeldDown = false
+		if entity.jumpHeldDown^ && jumpKeyReleased() {
+			entity.jumpHeldDown^ = false
 		}
+
+		entity.direction^ = directionalInput
 		// no need to normalize as we separate horizontal and vertical movement
 		input.directionalInput = directionalInput
 		// input.directionalInput = linalg.normalize0(directionalInput)
