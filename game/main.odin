@@ -3,6 +3,7 @@ package game
 // core
 import fmt "core:fmt"
 import "core:math/linalg"
+import "core:strings"
 
 // vendor
 import rl "vendor:raylib"
@@ -19,14 +20,21 @@ DebugOptions :: struct {
 	show_colliders: bool,
 }
 
+GameEntity :: struct {
+	id:       i32,
+	movement: Movement,
+	input:    InputVariant,
+}
+
 Entity :: struct {
 	id: i32,
 }
 
 GameState :: struct {
-	player: Player,
-	blocks: map[i32]Block,
-	debug:  DebugOptions,
+	player:   ^GameEntity,
+	blocks:   map[i32]Block,
+	debug:    DebugOptions,
+	entities: map[i32]GameEntity,
 }
 gameState: ^GameState
 idCounter: i32 = 0
@@ -47,14 +55,50 @@ main :: proc() {
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(60)
+	// add player
+	id, player := addGameEntity(
+		{
+			movement = Actor {
+				velocity = {50, 0},
+				collider = {0, 0, 8, 16},
+				colliderColor = rl.GREEN,
+				jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
+			},
+			input = Input{},
+		},
+	)
 
 	// game setup
-	gameState.player = Player {
-		position = {0, 0, 0},
-		collider = {0, 0, 8, 16},
-		jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
-		test_timer = {time = 1, running = true, type = .OneShot},
-	}
+	gameState.player = player
+
+	addGameEntity(
+		{
+			movement = Solid {
+				position = {16, 24, 0},
+				collider = {0, 0, 8, 8},
+				colliderColor = rl.RED,
+			},
+		},
+	)
+	addGameEntity(
+		{
+			movement = Solid {
+				position = {32, 24, 0},
+				collider = {0, 0, 8, 8},
+				colliderColor = rl.RED,
+			},
+		},
+	)
+	addGameEntity(
+		{
+			movement = Solid {
+				position = {-10 * TILE_SIZE, 10 * TILE_SIZE, 0},
+				collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
+				colliderColor = rl.RED,
+			},
+		},
+	)
+
 	addBlock(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
 	addBlock(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
 	addBlock(
@@ -72,6 +116,14 @@ main :: proc() {
 	}
 }
 
+addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
+	idCounter += 1
+	entity := entity
+	entity.id = idCounter
+	gameState.entities[idCounter] = entity
+	return idCounter, &gameState.entities[idCounter]
+}
+
 addBlock :: proc(block: Block) -> i32 {
 	idCounter += 1
 	gameState.blocks[idCounter] = block
@@ -80,7 +132,39 @@ addBlock :: proc(block: Block) -> i32 {
 
 
 update :: proc() {
-	playerUpdate(&gameState.player, gameState)
+	dt := rl.GetFrameTime()
+	for _, &entity in gameState.entities {
+		// update input
+		updateInput(&entity, onJumpKeyPressed = proc(self: ^GameEntity) {
+				movement := &self.movement.(Actor)
+				movement.velocity.y = getJumpVelocity2(movement)
+			})
+
+		// update movement
+		switch &movement in entity.movement {
+		case Actor:
+			direction: rl.Vector2
+			if input, ok := entity.input.(Input); ok {
+				direction.x = input.directionalInput.x
+			}
+			// horizontal movement
+			solids := getSolids(gameState)
+			defer delete(solids)
+			setTouchingSolids(&movement, solids[:])
+			moveActorX(&movement, solids[:], direction.x * movement.velocity.x * dt)
+
+
+			// vertical movement
+			if isGrounded2(&movement) && movement.velocity.y > 0 {
+				movement.velocity.y = 0
+			} else {
+				movement.velocity.y += (getGravity2(&movement, &entity.input) * dt)
+			}
+			moveActorY(&movement, solids[:], movement.velocity.y * dt)
+		case Solid:
+		// noop
+		}
+	}
 
 	// for _, &block in gameState.blocks {
 	// 	blockUpdate(&block, gameState)
@@ -92,10 +176,40 @@ draw :: proc() {
 	rl.ClearBackground(rl.BLACK)
 
 	rl.BeginMode2D(gameCamera())
-	playerDraw(&gameState.player, gameState)
-	for _, &block in gameState.blocks {
-		blockDraw(&block, gameState)
+	for _, &entity in gameState.entities {
+		if gameState.debug.show_colliders {
+			switch &movement in entity.movement {
+			case Actor:
+				rl.DrawRectangle(
+					movement.position.x,
+					movement.position.y,
+					movement.collider.z,
+					movement.collider.w,
+					movement.colliderColor,
+				)
+			case Solid:
+				rl.DrawRectangle(
+					movement.position.x,
+					movement.position.y,
+					movement.collider.z,
+					movement.collider.w,
+					movement.colliderColor,
+				)
+			}
+		}
 	}
+	debug_text := fmt.tprintf(
+		"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",
+		gameState.player.movement.(Actor).velocity,
+		gameState.player.movement.(Actor).touching[.UP],
+		gameState.player.movement.(Actor).touching[.DOWN],
+	)
+	ctext := strings.clone_to_cstring(debug_text)
+	rl.DrawText(ctext, 0, 0, 5, rl.WHITE)
+
+	// for _, &block in gameState.blocks {
+	// 	blockDraw(&block, gameState)
+	// }
 
 	rl.EndMode2D()
 
@@ -109,9 +223,11 @@ gameCamera :: proc() -> rl.Camera2D {
 	h := f32(rl.GetScreenHeight())
 
 	// fmt.printf("[gameCamera]player: %v\n", &gameState.player.position)
+	player_movement := &gameState.player.movement.(Actor)
+
 	return {
 		zoom = h / PIXEL_WINDOW_HEIGHT,
-		target = {f32(gameState.player.position.x), f32(gameState.player.position.y)},
+		target = {f32(player_movement.position.x), f32(player_movement.position.y)},
 		offset = {w / 2, h / 2},
 	}
 }

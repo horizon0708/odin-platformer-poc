@@ -13,6 +13,42 @@ Player :: struct {
 	test_timer:     Timer,
 }
 
+updateInput :: proc(entity: ^GameEntity, onJumpKeyPressed: proc(self: ^GameEntity)) {
+	if input, ok := &entity.input.(Input); ok {
+		directionalInput: rl.Vector2
+		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
+			directionalInput.y -= 1
+		}
+		if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.S) {
+			directionalInput.y += 1
+		}
+		if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
+			directionalInput.x -= 1
+		}
+		if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
+			directionalInput.x += 1
+		}
+
+		jumpKeyPressed := rl.IsKeyDown(.SPACE) || rl.IsKeyDown(.X)
+		input.jumpKeyPressed = jumpKeyPressed
+
+		if movement, ok := entity.movement.(Actor); ok {
+			if isGrounded2(&movement) && jumpKeyPressed {
+				onJumpKeyPressed(entity)
+				input.jumpHeldDown = true
+			}
+		}
+
+
+		if input.jumpHeldDown && jumpKeyReleased() {
+			input.jumpHeldDown = false
+		}
+		// no need to normalize as we separate horizontal and vertical movement
+		input.directionalInput = directionalInput
+		// input.directionalInput = linalg.normalize0(directionalInput)
+	}
+}
+
 playerUpdate :: proc(player: ^Player, gameState: ^GameState) {
 	input: rl.Vector2
 	dt := rl.GetFrameTime()

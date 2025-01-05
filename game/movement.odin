@@ -4,10 +4,16 @@ import fmt "core:fmt"
 import "core:math"
 import rl "vendor:raylib"
 
+Movement :: union {
+	Actor,
+	Solid,
+}
+
 Solid :: struct {
-	using entity: Entity,
-	position:     Vector3I,
-	collider:     Vector4I,
+	using entity:  Entity,
+	position:      Vector3I,
+	collider:      Vector4I,
+	colliderColor: rl.Color,
 }
 
 Vector2I :: [2]i32
@@ -34,6 +40,19 @@ Jump :: struct {
 	timeToDescent: f32,
 }
 
+InputVariant :: union {
+	NoInput,
+	Input,
+}
+
+Input :: struct {
+	jumpHeldDown:     bool,
+	jumpKeyPressed:   bool,
+	directionalInput: rl.Vector2,
+}
+
+NoInput :: struct {}
+
 CollisionInfo :: struct {
 	bottom: [dynamic]i32,
 	top:    [dynamic]i32,
@@ -42,14 +61,78 @@ CollisionInfo :: struct {
 }
 
 Actor :: struct {
-	velocity:  rl.Vector2,
-	position:  Vector3I,
-	remainder: rl.Vector2,
+	velocity:      rl.Vector2,
+	position:      Vector3I,
+	remainder:     rl.Vector2,
 	// {offsetX, offsetY, width, height}
-	collider:  Vector4I,
-	jump:      Jump,
-	colliding: CollisionInfo,
-	touching:  map[Direction][dynamic]i32,
+	collider:      Vector4I,
+	colliderColor: rl.Color,
+	jump:          Jump,
+	colliding:     CollisionInfo,
+	touching:      map[Direction][dynamic]i32,
+}
+
+moveX :: proc(self: ^GameEntity, solids: []^Solid, x: f32) {
+	switch &movement in self.movement {
+	case Actor:
+		movement.remainder.x += x
+		move := i32(math.round(movement.remainder.x))
+
+		if move != 0 {
+			movement.remainder.x -= f32(move)
+			sign := i32(math.sign(f32(move)))
+			for {
+				if (move == 0) {
+					break
+				}
+				// Q: do we need this when we now have touching field?
+				colliding_solids := getCollidingSolidIds(&movement, solids, {sign, 0})
+				if len(colliding_solids) == 0 {
+					movement.position.x += sign
+					move -= sign
+				} else {
+					break
+				}
+			}
+		}
+	case Solid:
+	}
+}
+
+
+getGravity2 :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
+	assert(movement.jump.height > 0)
+	assert(movement.jump.timeToPeak > 0)
+	assert(movement.jump.timeToDescent > 0)
+
+
+	jumpGravity :=
+		(2.0 * movement.jump.height) / (movement.jump.timeToPeak * movement.jump.timeToPeak)
+	fallGravity :=
+		(2.0 * movement.jump.height) / (movement.jump.timeToDescent * movement.jump.timeToDescent)
+
+	extendJump := false
+	if input, ok := input.(Input); ok {
+		extendJump = input.jumpHeldDown
+		// fmt.printf("extendJump: %v\n", extendJump)
+	}
+
+	if movement.velocity.y >= 0 {
+		return fallGravity
+	} else if extendJump {
+		return jumpGravity
+	} else {
+		return jumpGravity * 2.5
+	}
+}
+
+
+isGrounded2 :: proc(movement: ^Actor) -> bool {
+	return len(movement.touching[.DOWN]) > 0
+}
+
+getJumpVelocity2 :: proc(movement: ^Actor) -> f32 {
+	return (-2.0 * movement.jump.height) / movement.jump.timeToPeak
 }
 
 moveActorX :: proc(self: ^Actor, solids: []^Solid, x: f32) {
