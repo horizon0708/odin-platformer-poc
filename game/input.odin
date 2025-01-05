@@ -36,13 +36,10 @@ updateInput :: proc(
 
 		input.jumpKeyPressed = jumpKeyPressed()
 
-		if movement, ok := entity.movement.(Actor); ok {
-			if isGrounded(&movement) && input.jumpKeyPressed {
-				onJumpKeyPressed(entity)
-				input.jumpHeldDown = true
-			}
+		if movement, ok := entity.movement.(Actor); ok && input.jumpKeyPressed {
+			onJumpKeyPressed(entity)
+			input.jumpHeldDown = true
 		}
-
 
 		if input.jumpHeldDown && jumpKeyReleased() {
 			input.jumpHeldDown = false

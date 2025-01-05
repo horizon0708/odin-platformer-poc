@@ -57,6 +57,7 @@ Actor :: struct {
 	jump:          Jump,
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
+	wasGrounded:   bool,
 }
 
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
@@ -78,6 +79,18 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 			fmt.printf("coyote timer complete\n")
 		})
 
+
+		isGroundedNow := isGrounded(&movement)
+		if isGroundedNow {
+			timerStop(&movement.jump.coyoteTimer)
+		} else if movement.wasGrounded && !isGroundedNow && movement.velocity.y > 0 {
+			timerStart(&movement.jump.coyoteTimer, &movement, proc(self: ^Actor) {
+				fmt.printf("coyote timer started\n")
+			})
+		}
+		movement.wasGrounded = isGroundedNow
+
+
 		// vertical movement
 		if isGrounded(&movement) && movement.velocity.y > 0 {
 			movement.velocity.y = 0
@@ -92,10 +105,14 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 
 onJumpKeyPressed :: proc(self: ^GameEntity) {
 	movement := &self.movement.(Actor)
-	movement.velocity.y = getJumpVelocity(movement)
-	timerStart(&movement.jump.coyoteTimer, self, proc(self: ^GameEntity) {
-		fmt.printf("coyote timer started\n")
-	})
+	if isGrounded(movement) || isCoyoteTimeActive(movement) {
+		movement.velocity.y = getJumpVelocity(movement)
+		timerStop(&movement.jump.coyoteTimer)
+	}
+}
+
+isCoyoteTimeActive :: proc(movement: ^Actor) -> bool {
+	return timerIsRunning(&movement.jump.coyoteTimer)
 }
 
 getGravity :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {

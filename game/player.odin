@@ -6,9 +6,10 @@ import "core:strings"
 import rl "vendor:raylib"
 
 
-Player :: struct {
-	using entity:   Entity,
-	using actor:    Actor,
-	jump_held_down: bool,
-	test_timer:     Timer,
+TypeVariant :: union {
+	Block,
+	Player,
 }
+
+Block :: struct {}
+Player :: struct {}

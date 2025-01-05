@@ -22,6 +22,7 @@ DebugOptions :: struct {
 
 GameEntity :: struct {
 	id:       i32,
+	type:     TypeVariant,
 	movement: MovementVariant,
 	input:    InputVariant,
 }
@@ -32,7 +33,6 @@ Entity :: struct {
 
 GameState :: struct {
 	player:   ^GameEntity,
-	blocks:   map[i32]Block,
 	debug:    DebugOptions,
 	entities: map[i32]GameEntity,
 }
@@ -58,6 +58,7 @@ main :: proc() {
 	// add player
 	id, player := addGameEntity(
 		{
+			type = Player{},
 			movement = Actor {
 				velocity = {50, 0},
 				collider = {0, 0, 8, 16},
@@ -66,7 +67,7 @@ main :: proc() {
 					height = 60,
 					timeToPeak = 0.5,
 					timeToDescent = 0.3,
-					coyoteTimer = {duration = 0.1},
+					coyoteTimer = {duration = 0.5},
 				},
 			},
 			input = Input{},
@@ -139,6 +140,12 @@ draw :: proc() {
 		if gameState.debug.show_colliders {
 			switch &movement in entity.movement {
 			case Actor:
+				if player, ok := &entity.type.(Player); ok {
+					if isCoyoteTimeActive(&movement) {
+						rl.DrawCircle(movement.position.x, movement.position.y, 1.5, rl.RED)
+					}
+				}
+
 				rl.DrawRectangle(
 					movement.position.x,
 					movement.position.y,
@@ -156,6 +163,8 @@ draw :: proc() {
 				)
 			}
 		}
+
+
 	}
 	debug_text := fmt.tprintf(
 		"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",

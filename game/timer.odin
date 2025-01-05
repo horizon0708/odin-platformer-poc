@@ -44,3 +44,12 @@ timerPause :: proc(timer: ^Timer) {
 
 	timer.running = false
 }
+
+timerStop :: proc(timer: ^Timer) {
+	timer.running = false
+	timer.currentTime = 0
+}
+
+timerIsRunning :: proc(timer: ^Timer) -> bool {
+	return timer.running && timer.currentTime < timer.duration
+}
