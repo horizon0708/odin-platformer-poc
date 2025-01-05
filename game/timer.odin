@@ -8,7 +8,7 @@ TimerType :: enum {
 }
 
 Timer :: struct {
-	time:        f32,
+	duration:    f32,
 	currentTime: f32,
 	running:     bool,
 	type:        TimerType,
@@ -20,7 +20,7 @@ timerUpdate :: proc(timer: ^Timer, owner: ^$T, dt: f32, onComplete: proc(self: ^
 	}
 
 	timer.currentTime += dt
-	if timer.currentTime >= timer.time {
+	if timer.currentTime >= timer.duration {
 		onComplete(owner)
 		if timer.type == .OneShot {
 			timer.running = false
@@ -31,10 +31,6 @@ timerUpdate :: proc(timer: ^Timer, owner: ^$T, dt: f32, onComplete: proc(self: ^
 }
 
 timerStart :: proc(timer: ^Timer, owner: ^$T, onStart: proc(self: ^T)) {
-	if timer.running {
-		fmt.printf("timer already running\n")
-		return
-	}
 
 	timer.running = true
 	timer.currentTime = 0

@@ -4,7 +4,7 @@ import fmt "core:fmt"
 import "core:math"
 import rl "vendor:raylib"
 
-Movement :: union {
+MovementVariant :: union {
 	Actor,
 	Solid,
 }
@@ -38,20 +38,8 @@ Jump :: struct {
 	height:        f32,
 	timeToPeak:    f32,
 	timeToDescent: f32,
+	coyoteTimer:   Timer,
 }
-
-InputVariant :: union {
-	NoInput,
-	Input,
-}
-
-Input :: struct {
-	jumpHeldDown:     bool,
-	jumpKeyPressed:   bool,
-	directionalInput: rl.Vector2,
-}
-
-NoInput :: struct {}
 
 CollisionInfo :: struct {
 	bottom: [dynamic]i32,
@@ -64,43 +52,53 @@ Actor :: struct {
 	velocity:      rl.Vector2,
 	position:      Vector3I,
 	remainder:     rl.Vector2,
-	// {offsetX, offsetY, width, height}
-	collider:      Vector4I,
+	collider:      Vector4I, // {offsetX, offsetY, width, height}
 	colliderColor: rl.Color,
 	jump:          Jump,
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
 }
 
-moveX :: proc(self: ^GameEntity, solids: []^Solid, x: f32) {
-	switch &movement in self.movement {
-	case Actor:
-		movement.remainder.x += x
-		move := i32(math.round(movement.remainder.x))
+updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
+	dt := rl.GetFrameTime()
 
-		if move != 0 {
-			movement.remainder.x -= f32(move)
-			sign := i32(math.sign(f32(move)))
-			for {
-				if (move == 0) {
-					break
-				}
-				// Q: do we need this when we now have touching field?
-				colliding_solids := getCollidingSolidIds(&movement, solids, {sign, 0})
-				if len(colliding_solids) == 0 {
-					movement.position.x += sign
-					move -= sign
-				} else {
-					break
-				}
-			}
+	switch &movement in entity.movement {
+	case Actor:
+		direction: rl.Vector2
+		if input, ok := entity.input.(Input); ok {
+			direction.x = input.directionalInput.x
 		}
+		// horizontal movement
+		solids := getSolids(gameState)
+		defer delete(solids)
+		setTouchingSolids(&movement, solids[:])
+		moveActorX(&movement, solids[:], direction.x * movement.velocity.x * dt)
+
+		timerUpdate(&movement.jump.coyoteTimer, &movement, dt, proc(entity: ^Actor) {
+			fmt.printf("coyote timer complete\n")
+		})
+
+		// vertical movement
+		if isGrounded(&movement) && movement.velocity.y > 0 {
+			movement.velocity.y = 0
+		} else {
+			movement.velocity.y += (getGravity(&movement, &entity.input) * dt)
+		}
+		moveActorY(&movement, solids[:], movement.velocity.y * dt)
 	case Solid:
+	//noop
 	}
 }
 
+onJumpKeyPressed :: proc(self: ^GameEntity) {
+	movement := &self.movement.(Actor)
+	movement.velocity.y = getJumpVelocity(movement)
+	timerStart(&movement.jump.coyoteTimer, self, proc(self: ^GameEntity) {
+		fmt.printf("coyote timer started\n")
+	})
+}
 
-getGravity2 :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
+getGravity :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
 	assert(movement.jump.height > 0)
 	assert(movement.jump.timeToPeak > 0)
 	assert(movement.jump.timeToDescent > 0)
@@ -127,11 +125,11 @@ getGravity2 :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
 }
 
 
-isGrounded2 :: proc(movement: ^Actor) -> bool {
+isGrounded :: proc(movement: ^Actor) -> bool {
 	return len(movement.touching[.DOWN]) > 0
 }
 
-getJumpVelocity2 :: proc(movement: ^Actor) -> f32 {
+getJumpVelocity :: proc(movement: ^Actor) -> f32 {
 	return (-2.0 * movement.jump.height) / movement.jump.timeToPeak
 }
 

@@ -22,7 +22,7 @@ DebugOptions :: struct {
 
 GameEntity :: struct {
 	id:       i32,
-	movement: Movement,
+	movement: MovementVariant,
 	input:    InputVariant,
 }
 
@@ -62,7 +62,12 @@ main :: proc() {
 				velocity = {50, 0},
 				collider = {0, 0, 8, 16},
 				colliderColor = rl.GREEN,
-				jump = {height = 60, timeToPeak = 0.5, timeToDescent = 0.3},
+				jump = {
+					height = 60,
+					timeToPeak = 0.5,
+					timeToDescent = 0.3,
+					coyoteTimer = {duration = 0.1},
+				},
 			},
 			input = Input{},
 		},
@@ -99,15 +104,6 @@ main :: proc() {
 		},
 	)
 
-	addBlock(Block{position = {16, 24, 0}, collider = {0, 0, 8, 8}})
-	addBlock(Block{position = {32, 24, 0}, collider = {0, 0, 8, 8}})
-	addBlock(
-		Block {
-			position = {-10 * TILE_SIZE, 10 * TILE_SIZE, 0},
-			collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
-		},
-	)
-
 	for !rl.WindowShouldClose() {
 		{
 			update()
@@ -124,51 +120,14 @@ addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 	return idCounter, &gameState.entities[idCounter]
 }
 
-addBlock :: proc(block: Block) -> i32 {
-	idCounter += 1
-	gameState.blocks[idCounter] = block
-	return idCounter
-}
-
-
 update :: proc() {
 	dt := rl.GetFrameTime()
 	for _, &entity in gameState.entities {
 		// update input
-		updateInput(&entity, onJumpKeyPressed = proc(self: ^GameEntity) {
-				movement := &self.movement.(Actor)
-				movement.velocity.y = getJumpVelocity2(movement)
-			})
-
-		// update movement
-		switch &movement in entity.movement {
-		case Actor:
-			direction: rl.Vector2
-			if input, ok := entity.input.(Input); ok {
-				direction.x = input.directionalInput.x
-			}
-			// horizontal movement
-			solids := getSolids(gameState)
-			defer delete(solids)
-			setTouchingSolids(&movement, solids[:])
-			moveActorX(&movement, solids[:], direction.x * movement.velocity.x * dt)
-
-
-			// vertical movement
-			if isGrounded2(&movement) && movement.velocity.y > 0 {
-				movement.velocity.y = 0
-			} else {
-				movement.velocity.y += (getGravity2(&movement, &entity.input) * dt)
-			}
-			moveActorY(&movement, solids[:], movement.velocity.y * dt)
-		case Solid:
-		// noop
-		}
+		updateInput(&entity, gameState, onJumpKeyPressed = onJumpKeyPressed)
+		updateMovement(&entity, gameState)
 	}
 
-	// for _, &block in gameState.blocks {
-	// 	blockUpdate(&block, gameState)
-	// }
 }
 
 draw :: proc() {
@@ -207,10 +166,6 @@ draw :: proc() {
 	ctext := strings.clone_to_cstring(debug_text)
 	rl.DrawText(ctext, 0, 0, 5, rl.WHITE)
 
-	// for _, &block in gameState.blocks {
-	// 	blockDraw(&block, gameState)
-	// }
-
 	rl.EndMode2D()
 
 	rl.BeginMode2D(uiCamera())
@@ -238,8 +193,10 @@ uiCamera :: proc() -> rl.Camera2D {
 
 getSolids :: proc(gameState: ^GameState) -> [dynamic]^Solid {
 	solids := make([dynamic]^Solid)
-	for _, &block in gameState.blocks {
-		append_elem(&solids, &block.solid)
+	for _, &entity in gameState.entities {
+		if solid, ok := &entity.movement.(Solid); ok {
+			append_elem(&solids, solid)
+		}
 	}
 	return solids
 }
