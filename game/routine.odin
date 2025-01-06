@@ -39,7 +39,7 @@ updateRoutine :: proc(
 	updatedEntity: ^GameEntity,
 	done: bool,
 ) {
-	updatedEntity = entity
+	updatedEntity = entiy
 
 	routine := (&(entity.routine.(Routine))) or_return
 
@@ -47,6 +47,7 @@ updateRoutine :: proc(
 	switch step in step {
 	case MoveToPosition:
 		if entity.position^ == step.to {
+			entity.direction^ = {0, 0}
 			nextRoutineStep(routine)
 		} else {
 			x := math.sign(f32(step.to.x - entity.position.x))
@@ -61,6 +62,7 @@ updateRoutine :: proc(
 }
 
 nextRoutineStep :: proc(routine: ^Routine) {
+	fmt.printf("nextRoutineStep %d\n", routine.currentStep)
 	nextStepIndex := routine.currentStep + 1
 	if nextStepIndex >= len(routine.steps) {
 		if !routine.repeat {

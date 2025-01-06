@@ -235,7 +235,6 @@ moveSolid :: proc(entity: ^GameEntity, gameState: ^GameState, diff: rl.Vector2) 
 						actorMoveAmt := getColliderRight(solid) - getColliderLeft(actor)
 						moveActorX(actor, solids[:], f32(actorMoveAmt), onActorSquish)
 					} else if isRiding(solid, actor) {
-						fmt.printf("riding %d %d\n", solid.id, actor.id)
 						moveActorX(actor, solids[:], f32(moveX))
 					}
 				}
