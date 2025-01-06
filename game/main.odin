@@ -42,7 +42,12 @@ GameState :: struct {
 gameState: ^GameState
 idCounter: i32 = 0
 
+shader: rl.Shader
+
 main :: proc() {
+	// shader = rl.LoadShader(nil, "shaders/test.fs")
+
+
 	gameState = new(GameState)
 	gameState^ = GameState {
 		debug = {show_colliders = true},
@@ -56,6 +61,9 @@ main :: proc() {
 	rl.SetWindowPosition(2000, 1400)
 	rl.SetWindowState({.WINDOW_RESIZABLE})
 	defer rl.CloseWindow()
+
+	shader = rl.LoadShader(nil, "shaders/test.fs")
+	fmt.printf("shader: %v\n", shader)
 
 	rl.SetTargetFPS(60)
 	// add player
@@ -153,7 +161,7 @@ main :: proc() {
 
 	for !rl.WindowShouldClose() {
 		{
-			update()
+
 			draw()
 		}
 	}
@@ -195,8 +203,22 @@ update :: proc() {
 }
 
 draw :: proc() {
+	// https://github.com/varugasu/raylib-shaders/blob/main/fragcoord/fragcoord.cpp
+	dt := rl.GetFrameTime()
+	update()
+	rl.SetShaderValue(shader, rl.GetShaderLocation(shader, "u_time"), &dt, .FLOAT)
+	resolutionVector := rl.Vector2{f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
+	rl.SetShaderValue(
+		shader,
+		rl.GetShaderLocation(shader, "u_resolution"),
+		&resolutionVector,
+		.VEC2,
+	)
+
+
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
+	rl.BeginShaderMode(shader)
 
 	rl.BeginMode2D(gameCamera())
 	for _, &entity in gameState.entities {
@@ -255,7 +277,7 @@ draw :: proc() {
 
 
 	rl.EndMode2D()
-
+	rl.EndShaderMode()
 	rl.BeginMode2D(uiCamera())
 	rl.EndMode2D()
 	rl.EndDrawing()
