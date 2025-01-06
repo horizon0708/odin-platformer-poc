@@ -3,7 +3,6 @@ package game
 import "core:fmt"
 import rl "vendor:raylib"
 Trail :: struct {
-	index:     int,
 	rectangle: rl.Rectangle,
 	color:     rl.Color,
 	createdAt: f64,
@@ -20,7 +19,7 @@ addTrail :: proc(entity: ^GameEntity) {
 		rectangle = rl.Rectangle{f32(entity.position.x), f32(entity.position.y), 10, 10},
 		color     = rl.BLUE,
 		createdAt = rl.GetTime(),
-		duration  = 1,
+		duration  = 0.2,
 	}
 	append(&gameState.trails, trail)
 }
@@ -28,9 +27,9 @@ addTrail :: proc(entity: ^GameEntity) {
 updateTrails :: proc(gameState: ^GameState) {
 	trailsToRemove := make([dynamic]int)
 	defer delete(trailsToRemove)
-	for trail in gameState.trails {
+	for trail, index in gameState.trails {
 		if rl.GetTime() - trail.createdAt > trail.duration {
-			append(&trailsToRemove, trail.index)
+			append(&trailsToRemove, index)
 		}
 	}
 	for index in trailsToRemove {
