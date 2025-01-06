@@ -12,6 +12,7 @@ MovementVariant :: union {
 Solid :: struct {
 	id:            i32,
 	position:      Vector2I,
+	facing:        Direction,
 	direction:     rl.Vector2,
 	velocity:      rl.Vector2,
 	collider:      Vector4I,
@@ -25,8 +26,8 @@ Vector3I :: [3]i32
 Vector4I :: [4]i32
 
 Direction :: enum {
-	LEFT,
 	RIGHT,
+	LEFT,
 	UP,
 	DOWN,
 }
@@ -45,6 +46,27 @@ Jump :: struct {
 	coyoteTimer:   Timer,
 }
 
+Dash :: struct {
+	speed:    f32,
+	timer:    Timer,
+	cooldown: Timer,
+}
+
+Speed :: union {
+	LinearSpeed,
+	AcceleratedSpeed,
+}
+
+LinearSpeed :: struct {
+	speed: f32,
+}
+
+AcceleratedSpeed :: struct {
+	acceleration: f32,
+	baseSpeed:    f32,
+	maxSpeed:     f32,
+}
+
 CollisionInfo :: struct {
 	bottom: [dynamic]i32,
 	top:    [dynamic]i32,
@@ -55,12 +77,15 @@ CollisionInfo :: struct {
 Actor :: struct {
 	id:            i32,
 	position:      Vector2I,
+	facing:        Direction,
 	direction:     rl.Vector2,
+	xSpeed:        Speed,
 	velocity:      rl.Vector2,
 	remainder:     rl.Vector2,
 	collider:      Vector4I, // {offsetX, offsetY, width, height}
 	colliderColor: rl.Color,
 	jump:          Jump,
+	dash:          Dash,
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
 	wasGrounded:   bool,
@@ -70,15 +95,66 @@ initMovement :: proc(entity: ^GameEntity) {
 	switch &movement in entity.movement {
 	case Actor:
 		movement.id = entity.id
+		entity.facing = &movement.facing
 		entity.position = &movement.position
 		entity.velocity = &movement.velocity
 		entity.direction = &movement.direction
 	case Solid:
 		movement.id = entity.id
+		entity.facing = &movement.facing
 		entity.position = &movement.position
 		entity.velocity = &movement.velocity
 		entity.direction = &movement.direction
 	}
+}
+
+onDashkeyPressed :: proc(self: ^GameEntity) -> bool {
+	actor := &(self.movement.(Actor))
+	if actor == nil {
+		return false
+	}
+	if !dashAvailable(actor) {
+		return false
+	}
+
+	timerStart(&actor.dash.timer, actor, proc(self: ^Actor) {
+		fmt.printf("dash timer started\n")
+	})
+	timerStart(&actor.dash.cooldown, actor, proc(self: ^Actor) {
+		fmt.printf("dash cooldown timer started\n")
+	})
+	fmt.printf("dash key pressed\n")
+	return true
+}
+
+dashAvailable :: proc(self: ^Actor) -> bool {
+	return(
+		!timerIsRunning(&self.dash.timer) &&
+		!timerIsRunning(&self.dash.cooldown) &&
+		isGrounded(self) \
+	)
+}
+
+updateVelocityX :: proc(self: ^Actor) {
+	dt := rl.GetFrameTime()
+
+	switch x in self.xSpeed {
+	case LinearSpeed:
+		if timerIsRunning(&self.dash.timer) {
+			self.velocity.x = self.dash.speed * f32(getDirectionVector(self.facing).x)
+		} else {
+			self.velocity.x = x.speed * self.direction.x
+		}
+	case AcceleratedSpeed:
+		// TODO: clamp to max speed
+		// Sort out direction etc
+		self.velocity.x = x.baseSpeed + x.acceleration * dt
+	}
+}
+
+getDirectionVector :: proc(facing: Direction) -> Vector2I {
+	directionVector := DirectionVector
+	return directionVector[facing]
 }
 
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
@@ -90,10 +166,18 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		solids := getSolids(gameState)
 		defer delete(solids)
 		setTouchingSolids(&movement, solids[:])
-		moveActorX(&movement, solids[:], movement.direction.x * movement.velocity.x * dt)
+		updateVelocityX(&movement)
+
+		moveActorX(&movement, solids[:], movement.velocity.x * dt)
 
 		timerUpdate(&movement.jump.coyoteTimer, &movement, proc(entity: ^Actor) {
 			fmt.printf("coyote timer complete\n")
+		})
+		timerUpdate(&movement.dash.timer, &movement, proc(entity: ^Actor) {
+			fmt.printf("dash timer complete\n")
+		})
+		timerUpdate(&movement.dash.cooldown, &movement, proc(entity: ^Actor) {
+			fmt.printf("dash cooldown timer complete\n")
 		})
 
 

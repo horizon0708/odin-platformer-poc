@@ -28,6 +28,7 @@ updateInput :: proc(
 	entity: ^GameEntity,
 	_gameState: ^GameState,
 	onJumpKeyPressed: proc(self: ^GameEntity) -> bool,
+	onDashkeyPressed: proc(self: ^GameEntity) -> bool,
 ) {
 	if input, ok := &entity.input.(Input); ok {
 		directionalInput: rl.Vector2
@@ -39,9 +40,11 @@ updateInput :: proc(
 		}
 		if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
 			directionalInput.x -= 1
+			entity.facing^ = .LEFT
 		}
 		if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
 			directionalInput.x += 1
+			entity.facing^ = .RIGHT
 		}
 
 		input.jumpKeyPressed = jumpKeyPressed()
@@ -53,6 +56,10 @@ updateInput :: proc(
 
 		if entity.jumpHeldDown^ && jumpKeyReleased() {
 			entity.jumpHeldDown^ = false
+		}
+
+		if dashKeyPressed() {
+			onDashkeyPressed(entity)
 		}
 
 		// no need to normalize as we separate horizontal and vertical movement
@@ -67,4 +74,8 @@ jumpKeyPressed :: proc() -> bool {
 
 jumpKeyReleased :: proc() -> bool {
 	return rl.IsKeyReleased(.SPACE) || rl.IsKeyReleased(.X)
+}
+
+dashKeyPressed :: proc() -> bool {
+	return rl.IsKeyDown(.Z)
 }

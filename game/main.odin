@@ -63,7 +63,8 @@ main :: proc() {
 	{
 		type = Player{},
 		movement = Actor {
-			velocity = {50, 0},
+			velocity = {0, 0},
+			xSpeed = LinearSpeed{speed = 50},
 			collider = {0, 0, 8, 16},
 			colliderColor = rl.GREEN,
 			jump = {
@@ -72,6 +73,7 @@ main :: proc() {
 				timeToDescent = 0.3,
 				coyoteTimer = {duration = 0.5},
 			},
+			dash = {timer = {duration = 0.1}, cooldown = {duration = 0.5}, speed = 300},
 		},
 		input = Input{},
 		// routine = Routine {
@@ -167,6 +169,7 @@ addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 	assert(stored_entity.velocity != nil)
 	assert(stored_entity.direction != nil)
 	assert(stored_entity.jumpHeldDown != nil)
+	assert(stored_entity.facing != nil)
 	return idCounter, stored_entity
 }
 
@@ -174,7 +177,12 @@ update :: proc() {
 	dt := rl.GetFrameTime()
 	for _, &entity in gameState.entities {
 		// update input
-		updateInput(&entity, gameState, onJumpKeyPressed = onJumpKeyPressed)
+		updateInput(
+			&entity,
+			gameState,
+			onJumpKeyPressed = onJumpKeyPressed,
+			onDashkeyPressed = onDashkeyPressed,
+		)
 		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
 	}
@@ -195,6 +203,15 @@ draw :: proc() {
 						rl.DrawCircle(movement.position.x, movement.position.y, 1.5, rl.RED)
 					}
 
+					xCenter := (movement.position.x + (movement.collider.z) / 2)
+					directionVector := DirectionVector
+					facingDirection := directionVector[movement.facing]
+					rl.DrawCircle(
+						xCenter + facingDirection.x * 4,
+						movement.position.y + movement.collider.w / 2,
+						1.5,
+						rl.ORANGE,
+					)
 
 					debug_text := fmt.tprintf(
 						"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",

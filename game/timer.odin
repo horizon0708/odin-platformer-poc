@@ -36,6 +36,7 @@ timerUpdate :: proc(timer: ^Timer, owner: ^$T, onComplete: proc(self: ^T)) {
 
 timerStart :: proc(timer: ^Timer, owner: ^$T, onStart: proc(self: ^T)) {
 
+	assert(timer.duration > 0)
 	timer.running = true
 	timer.currentTime = 0
 	if onStart != nil {
