@@ -47,10 +47,11 @@ Jump :: struct {
 }
 
 Dash :: struct {
-	speed:        f32,
-	airDashSpeed: f32,
-	timer:        Timer,
-	cooldown:     Timer,
+	speed:           f32,
+	airDashSpeed:    f32,
+	timer:           Timer,
+	cooldown:        Timer,
+	trailSpawnTimer: Timer,
 }
 
 Speed :: union {
@@ -182,6 +183,9 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		})
 		timerUpdate(&movement.dash.cooldown, &movement, proc(entity: ^Actor) {
 			fmt.printf("dash cooldown timer complete\n")
+		})
+		timerUpdate(&movement.dash.trailSpawnTimer, entity, proc(entity: ^GameEntity) {
+			addTrail(entity)
 		})
 
 

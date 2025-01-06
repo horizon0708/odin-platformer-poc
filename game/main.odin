@@ -38,6 +38,7 @@ GameState :: struct {
 	player:   ^GameEntity,
 	debug:    DebugOptions,
 	entities: map[i32]GameEntity,
+	trails:   [dynamic]Trail,
 }
 gameState: ^GameState
 idCounter: i32 = 0
@@ -47,7 +48,7 @@ shader: rl.Shader
 main :: proc() {
 	// shader = rl.LoadShader(nil, "shaders/test.fs")
 
-
+	rl.GetTime()
 	gameState = new(GameState)
 	gameState^ = GameState {
 		debug = {show_colliders = true},
@@ -86,6 +87,7 @@ main :: proc() {
 				cooldown = {duration = 0.5},
 				speed = 300,
 				airDashSpeed = 200,
+				trailSpawnTimer = {running = true, type = .Repeating, duration = 0.1 / 8},
 			},
 		},
 		input = Input{},
@@ -188,6 +190,7 @@ addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 
 update :: proc() {
 	dt := rl.GetFrameTime()
+	updateTrails(gameState)
 	for _, &entity in gameState.entities {
 		// update input
 		updateInput(
@@ -206,6 +209,9 @@ draw :: proc() {
 	// https://github.com/varugasu/raylib-shaders/blob/main/fragcoord/fragcoord.cpp
 	dt := rl.GetFrameTime()
 	update()
+	// next https://www.shadertoy.com/view/mtSGDy
+	// https://www.shadertoy.com/view/dtS3Dw
+	// https://www.shadertoy.com/view/Dl23zR
 	rl.SetShaderValue(shader, rl.GetShaderLocation(shader, "u_time"), &dt, .FLOAT)
 	resolutionVector := rl.Vector2{f32(rl.GetRenderWidth()), f32(rl.GetRenderHeight())}
 	rl.SetShaderValue(
@@ -218,9 +224,10 @@ draw :: proc() {
 
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
-	rl.BeginShaderMode(shader)
+	// rl.BeginShaderMode(shader)
 
 	rl.BeginMode2D(gameCamera())
+	drawTrails(gameState)
 	for _, &entity in gameState.entities {
 		if gameState.debug.show_colliders {
 			switch &movement in entity.movement {
