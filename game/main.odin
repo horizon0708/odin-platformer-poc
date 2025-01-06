@@ -60,37 +60,53 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 	// add player
 	id, player := addGameEntity(
-		{
-			type = Player{},
-			movement = Actor {
-				velocity = {50, 0},
-				collider = {0, 0, 8, 16},
-				colliderColor = rl.GREEN,
-				jump = {
-					height = 60,
-					timeToPeak = 0.5,
-					timeToDescent = 0.3,
-					coyoteTimer = {duration = 0.5},
-				},
-			},
-			input = Input{},
-			routine = Routine {
-				repeat = true,
-				steps = {
-					MoveToPosition{to = {32, 64}},
-					HoldPosition{duration = 1},
-					MoveToPosition{to = {0, 64}},
-					HoldPosition{duration = 1},
-				},
+	{
+		type = Player{},
+		movement = Actor {
+			velocity = {50, 0},
+			collider = {0, 0, 8, 16},
+			colliderColor = rl.GREEN,
+			jump = {
+				height = 60,
+				timeToPeak = 0.5,
+				timeToDescent = 0.3,
+				coyoteTimer = {duration = 0.5},
 			},
 		},
+		input = Input{},
+		// routine = Routine {
+		// 	repeat = true,
+		// 	steps = {
+		// 		MoveToPosition{to = {32, 64}},
+		// 		HoldPosition{duration = 1},
+		// 		MoveToPosition{to = {0, 64}},
+		// 		HoldPosition{duration = 1},
+		// 	},
+		// },
+	},
 	)
 
 	// game setup
 	gameState.player = player
 
 	addGameEntity(
-		{movement = Solid{position = {16, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
+		{
+			movement = Solid {
+				position = {16, 24},
+				velocity = {20, 20},
+				collider = {0, 0, 8, 8},
+				colliderColor = rl.RED,
+			},
+			routine = Routine {
+				repeat = true,
+				steps = {
+					MoveToPosition{to = {0, 24}},
+					HoldPosition{duration = 1},
+					MoveToPosition{to = {16, 24}},
+					HoldPosition{duration = 1},
+				},
+			},
+		},
 	)
 	addGameEntity(
 		{movement = Solid{position = {32, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},

@@ -10,11 +10,14 @@ MovementVariant :: union {
 }
 
 Solid :: struct {
+	id:            i32,
 	position:      Vector2I,
 	direction:     rl.Vector2,
 	velocity:      rl.Vector2,
 	collider:      Vector4I,
 	colliderColor: rl.Color,
+	collidable:    bool,
+	remainder:     rl.Vector2,
 }
 
 Vector2I :: [2]i32
@@ -50,6 +53,7 @@ CollisionInfo :: struct {
 }
 
 Actor :: struct {
+	id:            i32,
 	position:      Vector2I,
 	direction:     rl.Vector2,
 	velocity:      rl.Vector2,
@@ -65,10 +69,12 @@ Actor :: struct {
 initMovement :: proc(entity: ^GameEntity) {
 	switch &movement in entity.movement {
 	case Actor:
+		movement.id = entity.id
 		entity.position = &movement.position
 		entity.velocity = &movement.velocity
 		entity.direction = &movement.direction
 	case Solid:
+		movement.id = entity.id
 		entity.position = &movement.position
 		entity.velocity = &movement.velocity
 		entity.direction = &movement.direction
@@ -80,8 +86,6 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 
 	switch &movement in entity.movement {
 	case Actor:
-		direction: rl.Vector2
-
 		// horizontal movement
 		solids := getSolids(gameState)
 		defer delete(solids)
@@ -112,6 +116,7 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		}
 		moveActorY(&movement, solids[:], movement.velocity.y * dt)
 	case Solid:
+		moveSolid(entity, gameState, movement.direction * movement.velocity * dt)
 	//noop
 	}
 }
@@ -166,7 +171,7 @@ getJumpVelocity :: proc(movement: ^Actor) -> f32 {
 	return (-2.0 * movement.jump.height) / movement.jump.timeToPeak
 }
 
-moveActorX :: proc(self: ^Actor, solids: []^GameEntity, x: f32) {
+moveActorX :: proc(self: ^Actor, solids: []^GameEntity, x: f32, onCollision: proc(id: i32) = nil) {
 	self.remainder.x += x
 	move := i32(math.round(self.remainder.x))
 
@@ -183,15 +188,176 @@ moveActorX :: proc(self: ^Actor, solids: []^GameEntity, x: f32) {
 				self.position.x += sign
 				move -= sign
 			} else {
+				if onCollision != nil {
+					onCollision(self.id)
+				}
 				break
 			}
 		}
 	}
 }
 
+
+/*
+Solids move without checking for collisions with other solids.
+If it is told to move by a certain amount, it will move by that amount.
+*/
+moveSolid :: proc(entity: ^GameEntity, gameState: ^GameState, diff: rl.Vector2) {
+	solid, ok := &entity.movement.(Solid)
+	if !ok {
+		return
+	}
+
+	solid.remainder.x += diff.x
+	solid.remainder.y += diff.y
+
+	moveX := i32(math.round(solid.remainder.x))
+	moveY := i32(math.round(solid.remainder.y))
+	actors := getActors(gameState)
+	solids := getSolids(gameState)
+	defer delete(actors)
+	defer delete(solids)
+
+	if moveX != 0 || moveY != 0 {
+
+		// Make this Solid non-collidable for Actors,
+		// so that Actors moved by it do not get stuck on it
+		// note: not sure why this is needed yet
+		// also I haven't used this to filter out collisions yet
+		solid.collidable = false
+
+		if moveX != 0 {
+			solid.remainder.x -= f32(moveX)
+			solid.position.x += moveX
+			if (moveX > 0) {
+				for &actor in actors {
+					if isOverlapping(solid, actor) {
+						actorMoveAmt := getColliderRight(solid) - getColliderLeft(actor)
+						moveActorX(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+					} else if isRiding(solid, actor) {
+						fmt.printf("riding %d %d\n", solid.id, actor.id)
+						moveActorX(actor, solids[:], f32(moveX))
+					}
+				}
+			} else {
+				for &actor in actors {
+					if isOverlapping(solid, actor) {
+						actorMoveAmt := getColliderLeft(solid) - getColliderRight(actor)
+						moveActorX(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+					} else if isRiding(solid, actor) {
+						moveActorX(actor, solids[:], f32(moveX))
+					}
+				}
+			}
+		}
+		if moveY != 0 {
+			solid.remainder.y -= f32(moveY)
+			solid.position.y += moveY
+			if (moveY > 0) {
+				// going down
+				for &actor in actors {
+					if isOverlapping(solid, actor) {
+						actorMoveAmt := getColliderBottom(solid) - getColliderTop(actor)
+						moveActorY(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+					}
+					// for now, you can't ride a solid up
+					// this might change if there is wall climbing
+				}
+			} else {
+				// going up
+				for &actor in actors {
+					if isOverlapping(solid, actor) {
+						actorMoveAmt := getColliderTop(solid) - getColliderBottom(actor)
+						moveActorY(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+					}
+				}
+			}
+		}
+
+		solid.collidable = true
+	}
+}
+
+isRiding :: proc(solid: ^Solid, actor: ^Actor) -> bool {
+	isRiding := false
+	for id in actor.touching[.DOWN] {
+		if id == solid.id {
+			isRiding = true
+			break
+		}
+	}
+	return isRiding
+}
+
+onActorSquish :: proc(id: i32) {
+	fmt.printf("actor squished %d \n", id)
+}
+
+getColliderRight_Solid :: proc(solid: ^Solid) -> i32 {
+	return solid.position.x + solid.collider.x + solid.collider.z
+}
+
+getColliderRight_Actor :: proc(actor: ^Actor) -> i32 {
+	return actor.position.x + actor.collider.x + actor.collider.z
+}
+
+getColliderRight :: proc {
+	getColliderRight_Solid,
+	getColliderRight_Actor,
+}
+
+getColliderLeft_Solid :: proc(solid: ^Solid) -> i32 {
+	return solid.position.x + solid.collider.x
+}
+
+getColliderLeft_Actor :: proc(actor: ^Actor) -> i32 {
+	return actor.position.x + actor.collider.x
+}
+
+
+getColliderLeft :: proc {
+	getColliderLeft_Solid,
+	getColliderLeft_Actor,
+}
+
+getColliderBottom_Solid :: proc(solid: ^Solid) -> i32 {
+	return solid.position.y + solid.collider.y + solid.collider.w
+}
+
+getColliderBottom_Actor :: proc(actor: ^Actor) -> i32 {
+	return actor.position.y + actor.collider.y + actor.collider.w
+}
+
+getColliderBottom :: proc {
+	getColliderBottom_Solid,
+	getColliderBottom_Actor,
+}
+
+getColliderTop_Solid :: proc(solid: ^Solid) -> i32 {
+	return solid.position.y + solid.collider.y
+}
+
+getColliderTop_Actor :: proc(actor: ^Actor) -> i32 {
+	return actor.position.y + actor.collider.y
+}
+
+getColliderTop :: proc {
+	getColliderTop_Solid,
+	getColliderTop_Actor,
+}
+
+getActors :: proc(gameState: ^GameState) -> [dynamic]^Actor {
+	actors := [dynamic]^Actor{}
+	for _, &entity in &gameState.entities {
+		movement := (&(entity.movement.(Actor))) or_continue
+		append(&actors, movement)
+	}
+	return actors
+}
+
 // TODO: bitset for collision
 
-moveActorY :: proc(self: ^Actor, solids: []^GameEntity, y: f32) {
+moveActorY :: proc(self: ^Actor, solids: []^GameEntity, y: f32, onCollision: proc(id: i32) = nil) {
 	self.remainder.y += y
 	move := i32(math.round(self.remainder.y))
 
@@ -210,6 +376,9 @@ moveActorY :: proc(self: ^Actor, solids: []^GameEntity, y: f32) {
 				// on hitting something, y velocity is reset so that
 				// hitting on the head makes you immediately fall
 				self.velocity.y = 0
+				if onCollision != nil {
+					onCollision(self.id)
+				}
 				break
 			}
 		}
@@ -240,6 +409,12 @@ isColliding :: proc(self: ^Actor, direction: Direction) -> bool {
 		return len(self.colliding.bottom) > 0
 	}
 	return false
+}
+
+isOverlapping :: proc(solid: ^Solid, actor: ^Actor) -> bool {
+	solid_rect := toRect(solid.position, solid.collider)
+	actor_rect := toRect(actor.position, actor.collider)
+	return rl.CheckCollisionRecs(solid_rect, actor_rect)
 }
 
 
