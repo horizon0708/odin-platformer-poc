@@ -73,7 +73,12 @@ main :: proc() {
 				timeToDescent = 0.3,
 				coyoteTimer = {duration = 0.5},
 			},
-			dash = {timer = {duration = 0.1}, cooldown = {duration = 0.5}, speed = 300},
+			dash = {
+				timer = {duration = 0.1},
+				cooldown = {duration = 0.5},
+				speed = 300,
+				airDashSpeed = 200,
+			},
 		},
 		input = Input{},
 		// routine = Routine {

@@ -47,9 +47,10 @@ Jump :: struct {
 }
 
 Dash :: struct {
-	speed:    f32,
-	timer:    Timer,
-	cooldown: Timer,
+	speed:        f32,
+	airDashSpeed: f32,
+	timer:        Timer,
+	cooldown:     Timer,
 }
 
 Speed :: union {
@@ -89,6 +90,7 @@ Actor :: struct {
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
 	wasGrounded:   bool,
+	isDashJumping: bool,
 }
 
 initMovement :: proc(entity: ^GameEntity) {
@@ -142,6 +144,8 @@ updateVelocityX :: proc(self: ^Actor) {
 	case LinearSpeed:
 		if timerIsRunning(&self.dash.timer) {
 			self.velocity.x = self.dash.speed * f32(getDirectionVector(self.facing).x)
+		} else if !isGrounded(self) && self.isDashJumping {
+			self.velocity.x = self.dash.airDashSpeed * self.direction.x
 		} else {
 			self.velocity.x = x.speed * self.direction.x
 		}
@@ -183,6 +187,7 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 
 		isGroundedNow := isGrounded(&movement)
 		if isGroundedNow {
+			movement.isDashJumping = false
 			timerStop(&movement.jump.coyoteTimer)
 		} else if movement.wasGrounded && !isGroundedNow {
 			timerStart(&movement.jump.coyoteTimer, &movement, proc(self: ^Actor) {
@@ -211,6 +216,11 @@ onJumpKeyPressed :: proc(self: ^GameEntity) -> bool {
 	if isGrounded(movement) || isCoyoteTimeActive(movement) {
 		movement.velocity.y = getJumpVelocity(movement)
 		timerStop(&movement.jump.coyoteTimer)
+
+		// if player was dashing when jumping, enter dash jumping to give extra speed while jumping
+		if timerIsRunning(&movement.dash.timer) {
+			movement.isDashJumping = true
+		}
 		return true
 	}
 

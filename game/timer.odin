@@ -15,17 +15,17 @@ Timer :: struct {
 	type:        TimerType,
 }
 
-timerUpdate :: proc(timer: ^Timer, owner: ^$T, onComplete: proc(self: ^T)) {
-	assert(onComplete != nil)
-	dt := rl.GetFrameTime()
-
+timerUpdate :: proc(timer: ^Timer, owner: ^$T, onComplete: proc(self: ^T) = nil) {
 	if !timer.running {
 		return
 	}
+	dt := rl.GetFrameTime()
 
 	timer.currentTime += dt
 	if timer.currentTime >= timer.duration {
-		onComplete(owner)
+		if onComplete != nil {
+			onComplete(owner)
+		}
 		if timer.type == .OneShot {
 			timer.running = false
 		} else {
