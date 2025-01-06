@@ -114,6 +114,29 @@ main :: proc() {
 	addGameEntity(
 		{
 			movement = Solid {
+				position = {16, 64},
+				velocity = {20, 20},
+				collider = {0, 0, 8, 8},
+				colliderColor = rl.RED,
+			},
+			routine = Routine {
+				repeat = true,
+				steps = {
+					MoveToPosition{to = {0, 64}},
+					HoldPosition{duration = 1},
+					MoveToPosition{to = {16, 64}},
+					HoldPosition{duration = 1},
+				},
+			},
+		},
+	)
+	addGameEntity(
+		{movement = Solid{position = {24, 64}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
+	)
+
+	addGameEntity(
+		{
+			movement = Solid {
 				position = {-10 * TILE_SIZE, 10 * TILE_SIZE},
 				collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
 				colliderColor = rl.RED,

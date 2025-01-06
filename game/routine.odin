@@ -39,7 +39,7 @@ updateRoutine :: proc(
 	updatedEntity: ^GameEntity,
 	done: bool,
 ) {
-	updatedEntity = entiy
+	updatedEntity = entity
 
 	routine := (&(entity.routine.(Routine))) or_return
 
@@ -62,7 +62,6 @@ updateRoutine :: proc(
 }
 
 nextRoutineStep :: proc(routine: ^Routine) {
-	fmt.printf("nextRoutineStep %d\n", routine.currentStep)
 	nextStepIndex := routine.currentStep + 1
 	if nextStepIndex >= len(routine.steps) {
 		if !routine.repeat {
@@ -78,7 +77,6 @@ nextRoutineStep :: proc(routine: ^Routine) {
 	// noop
 	case HoldPosition:
 		routine.timer.duration = nextStep.duration
-		fmt.printf("start hold position\n")
 		timerStart(&routine.timer, routine, nil)
 	}
 }
