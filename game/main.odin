@@ -215,10 +215,12 @@ draw :: proc() {
 
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.BLACK)
-	// rl.BeginShaderMode(shader)
 
 	rl.BeginMode2D(gameCamera())
+
+	rl.BeginShaderMode(shader)
 	drawTrails(gameState)
+	rl.EndShaderMode()
 	for _, &entity in gameState.entities {
 		if gameState.debug.show_colliders {
 			switch &movement in entity.movement {
@@ -275,7 +277,6 @@ draw :: proc() {
 
 
 	rl.EndMode2D()
-	rl.EndShaderMode()
 	rl.BeginMode2D(uiCamera())
 	rl.EndMode2D()
 	rl.EndDrawing()
