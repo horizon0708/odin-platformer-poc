@@ -25,15 +25,13 @@ addTrail :: proc(entity: ^GameEntity) {
 }
 
 updateTrails :: proc(gameState: ^GameState) {
-	trailsToRemove := make([dynamic]int)
-	defer delete(trailsToRemove)
-	for trail, index in gameState.trails {
+	for i := len(gameState.trails) - 1; i >= 0; i -= 1 {
+		trail := &gameState.trails[i]
+		progress := (rl.GetTime() - trail.createdAt) / trail.duration
+		trail.color.a = u8(200 * (1 - progress))
 		if rl.GetTime() - trail.createdAt > trail.duration {
-			append(&trailsToRemove, index)
+			unordered_remove(&gameState.trails, i)
 		}
-	}
-	for index in trailsToRemove {
-		unordered_remove(&gameState.trails, index)
 	}
 }
 
