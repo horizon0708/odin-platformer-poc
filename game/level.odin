@@ -1,4 +1,5 @@
 package game
+import json "core:encoding/json"
 import fmt "core:fmt"
 
 import ldtk "../ldtk"
@@ -66,28 +67,63 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 		switch entity.identifier {
 		case "Player_Spawn":
 			addPlayerSpawn(gameState, PlayerSpawn{position = position})
-		case "To_Next_Level":
+		case "Level_Entrance":
 			field_instance := entity.field_instances[0]
+			value, ok := get_entity_reference_infos(field_instance.value)
+			if !ok {
+				assert(false, "Failed to get entity reference infos")
+				continue
+			}
 
 			add_trigger(
 				gameState,
 				Trigger {
+					id = entity.iid,
 					rect = {
 						x = f32(position.x),
 						y = f32(position.y),
 						width = f32(entity.width),
 						height = f32(entity.height),
 					},
-					event = Level_Transition{next_level_id = field_instance.value.(string)},
+					event = Level_Transition {
+						entity_id = value.entity_iid,
+						level_id = value.level_iid,
+						world_id = value.world_iid,
+					},
 				},
 			)
 
-			fmt.printf("To_Next_Level: %v\n", entity)
-		// 
+
+			fmt.printf("Level_Entrance: %v\n", value)
 		case:
 			assert(false, fmt.tprintf("Unknown entity: %s", entity.identifier))
 		}
 	}
+}
+
+get_entity_reference_infos :: proc(
+	any_value: json.Value,
+) -> (
+	reference_infos: ldtk.Entity_Reference_Infos,
+	ok: bool,
+) {
+	value := any_value.(json.Object) or_return
+
+	entity_iid, ok1 := value["entityIid"].(string)
+	layer_iid, ok2 := value["layerIid"].(string)
+	level_iid, ok3 := value["levelIid"].(string)
+	world_iid, ok4 := value["worldIid"].(string)
+
+	if !(ok1 && ok2 && ok3 && ok4) {
+		return reference_infos, false
+	}
+	return ldtk.Entity_Reference_Infos {
+			entity_iid = entity_iid,
+			layer_iid = layer_iid,
+			level_iid = level_iid,
+			world_iid = world_iid,
+		},
+		true
 }
 
 Level_Transition_Trigger :: struct {

@@ -46,7 +46,7 @@ GameState :: struct {
 	current_level_id: string,
 	// TODO: this should be inside level
 	current_spawn:    PlayerSpawn,
-	triggers:         [dynamic]Trigger,
+	triggers:         map[string]Trigger,
 }
 gameState: ^GameState
 idCounter: i32 = 0
