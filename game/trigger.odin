@@ -17,6 +17,9 @@ Level_Transition :: struct {
 
 	// player offset relative to the trigger when they enter
 	player_offset: rl.Vector2,
+	// player state when they enter, so we know where to move them 
+	// and copy over their state in the new level
+	player:        GameEntity,
 }
 
 Level_Entrance :: struct {
@@ -49,21 +52,15 @@ update_triggers :: proc(gameState: ^GameState) -> bool {
 		was_colliding := trigger.colliding
 		trigger.colliding = rl.CheckCollisionRecs(trigger.rect, player_rect)
 
-		if was_colliding && !trigger.colliding && trigger.disabled {
-			// once player leaves the transition area, enable it
-			if event, ok := trigger.event.(Level_Transition); ok {
-				trigger.disabled = false
-			}
-		}
-
 		if !was_colliding && trigger.colliding && !trigger.disabled {
 			player_offset := rl.Vector2 {
-				trigger.rect.x - player_rect.x,
-				trigger.rect.y - player_rect.y,
+				player_rect.x - trigger.rect.x,
+				player_rect.y - trigger.rect.y,
 			}
 			switch &event in trigger.event {
 			case Level_Transition:
 				event.player_offset = player_offset
+				event.player = player^
 				on_level_transition(gameState, event)
 			}
 		}
@@ -75,15 +72,12 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	unload_level(gameState)
 	load_level(gameState, event.level_id)
 
-	// disable the trigger the player spawns in! 
 	transition_trigger := &gameState.triggers[event.entity_id]
-	transition_trigger.disabled = true
-
-	gameState.current_spawn = PlayerSpawn {
-		position = {
-			i32(transition_trigger.rect.x - event.player_offset.x),
-			i32(transition_trigger.rect.y - event.player_offset.y),
-		},
-	}
-	spawn_player(gameState)
+	// gameState.current_spawn = PlayerSpawn {
+	// 	position = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)},
+	// }
+	player := event.player
+	player.position^ = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)}
+	id, added_player := addGameEntity(event.player)
+	gameState.player = added_player
 }
