@@ -69,38 +69,29 @@ main :: proc() {
 	rl.SetTargetFPS(60)
 	// add player
 	id, player := addGameEntity(
-	{
-		type = Player{},
-		movement = Actor {
-			velocity = {0, 0},
-			xSpeed = LinearSpeed{speed = 50},
-			collider = {0, 0, 8, 16},
-			colliderColor = rl.GREEN,
-			jump = {
-				height = 60,
-				timeToPeak = 0.5,
-				timeToDescent = 0.3,
-				coyoteTimer = {duration = 0.5},
+		{
+			type = Player{},
+			movement = Actor {
+				velocity = {0, 0},
+				xSpeed = LinearSpeed{speed = 50},
+				collider = {0, 0, 8, 16},
+				colliderColor = rl.GREEN,
+				jump = {
+					height = 60,
+					timeToPeak = 0.5,
+					timeToDescent = 0.3,
+					coyoteTimer = {duration = 0.5},
+				},
+				dash = {
+					timer = {duration = 0.1},
+					cooldown = {duration = 0.5},
+					speed = 300,
+					airDashSpeed = 200,
+					trailSpawnTimer = {running = true, type = .Repeating, duration = 0.1 / 8},
+				},
 			},
-			dash = {
-				timer = {duration = 0.1},
-				cooldown = {duration = 0.5},
-				speed = 300,
-				airDashSpeed = 200,
-				trailSpawnTimer = {running = true, type = .Repeating, duration = 0.1 / 8},
-			},
+			input = Input{},
 		},
-		input = Input{},
-		// routine = Routine {
-		// 	repeat = true,
-		// 	steps = {
-		// 		MoveToPosition{to = {32, 64}},
-		// 		HoldPosition{duration = 1},
-		// 		MoveToPosition{to = {0, 64}},
-		// 		HoldPosition{duration = 1},
-		// 	},
-		// },
-	},
 	)
 
 	// game setup

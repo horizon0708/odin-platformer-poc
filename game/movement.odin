@@ -162,6 +162,10 @@ getDirectionVector :: proc(facing: Direction) -> Vector2I {
 	return directionVector[facing]
 }
 
+isDashingOrDashJumping :: proc(self: ^Actor) -> bool {
+	return timerIsRunning(&self.dash.timer) || self.isDashJumping
+}
+
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 	dt := rl.GetFrameTime()
 
@@ -184,9 +188,11 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		timerUpdate(&movement.dash.cooldown, &movement, proc(entity: ^Actor) {
 			fmt.printf("dash cooldown timer complete\n")
 		})
-		timerUpdate(&movement.dash.trailSpawnTimer, entity, proc(entity: ^GameEntity) {
-			addTrail(entity)
-		})
+		if isDashingOrDashJumping(&movement) {
+			timerUpdate(&movement.dash.trailSpawnTimer, entity, proc(entity: ^GameEntity) {
+				addTrail(entity)
+			})
+		}
 
 
 		isGroundedNow := isGrounded(&movement)

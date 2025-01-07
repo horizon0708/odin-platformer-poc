@@ -16,7 +16,7 @@ addTrail :: proc(entity: ^GameEntity) {
 	}
 
 	trail := Trail {
-		rectangle = rl.Rectangle{f32(entity.position.x), f32(entity.position.y), 10, 10},
+		rectangle = rl.Rectangle{f32(entity.position.x), f32(entity.position.y), 8, 16},
 		color     = rl.BLUE,
 		createdAt = rl.GetTime(),
 		duration  = 0.2,
