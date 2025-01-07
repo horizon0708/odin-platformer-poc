@@ -46,12 +46,24 @@ Jump :: struct {
 	coyoteTimer:   Timer,
 }
 
+GunRecoil :: struct {
+	groundSpeed:         f32,
+	airSpeed:            f32,
+	dashJumpRecoilSpeed: f32,
+	timer:               Timer,
+	cooldown:            Timer,
+	trailColor:          rl.Color,
+	trailDuration:       f64,
+}
+
 Dash :: struct {
 	speed:           f32,
 	airDashSpeed:    f32,
 	timer:           Timer,
 	cooldown:        Timer,
 	trailSpawnTimer: Timer,
+	trailColor:      rl.Color,
+	trailDuration:   f64,
 }
 
 Speed :: union {
@@ -76,6 +88,16 @@ CollisionInfo :: struct {
 	right:  [dynamic]i32,
 }
 
+MovementState :: enum {
+	IDLE,
+	MOVING,
+	FALLING,
+	JUMPING,
+	DASHING,
+	DASH_JUMPING,
+	DASH_JUMPING_RECOIL,
+}
+
 Actor :: struct {
 	id:            i32,
 	position:      Vector2I,
@@ -88,10 +110,11 @@ Actor :: struct {
 	colliderColor: rl.Color,
 	jump:          Jump,
 	dash:          Dash,
+	gunRecoil:     GunRecoil,
 	colliding:     CollisionInfo,
 	touching:      map[Direction][dynamic]i32,
 	wasGrounded:   bool,
-	isDashJumping: bool,
+	movementState: MovementState,
 }
 
 initMovement :: proc(entity: ^GameEntity) {
@@ -111,6 +134,32 @@ initMovement :: proc(entity: ^GameEntity) {
 	}
 }
 
+onFireKeyPressed :: proc(self: ^GameEntity) -> bool {
+	actor := &(self.movement.(Actor))
+	if actor == nil {
+		return false
+	}
+	if !fireAvailable(actor) {
+		return false
+	}
+
+	timerStart(&actor.gunRecoil.cooldown, actor, proc(self: ^Actor) {
+		fmt.printf("gun recoil cooldown timer started\n")
+	})
+	timerStart(&actor.gunRecoil.timer, actor, proc(self: ^Actor) {
+		fmt.printf("gun recoil timer started\n")
+	})
+	if actor.movementState == .DASH_JUMPING {
+		actor.movementState = .DASH_JUMPING_RECOIL
+	}
+	fmt.printf("fire key pressed\n")
+	return true
+}
+
+fireAvailable :: proc(self: ^Actor) -> bool {
+	return !timerIsRunning(&self.gunRecoil.cooldown)
+}
+
 onDashkeyPressed :: proc(self: ^GameEntity) -> bool {
 	actor := &(self.movement.(Actor))
 	if actor == nil {
@@ -121,6 +170,7 @@ onDashkeyPressed :: proc(self: ^GameEntity) -> bool {
 	}
 
 	timerStart(&actor.dash.timer, actor, proc(self: ^Actor) {
+		self.movementState = .DASHING
 		fmt.printf("dash timer started\n")
 	})
 	timerStart(&actor.dash.cooldown, actor, proc(self: ^Actor) {
@@ -143,10 +193,14 @@ updateVelocityX :: proc(self: ^Actor) {
 
 	switch x in self.xSpeed {
 	case LinearSpeed:
-		if timerIsRunning(&self.dash.timer) {
+		if timerIsRunning(&self.gunRecoil.timer) {
+			self.velocity.x = self.gunRecoil.groundSpeed * -f32(getDirectionVector(self.facing).x)
+		} else if self.movementState == .DASHING {
 			self.velocity.x = self.dash.speed * f32(getDirectionVector(self.facing).x)
-		} else if !isGrounded(self) && self.isDashJumping {
+		} else if !isGrounded(self) && self.movementState == .DASH_JUMPING {
 			self.velocity.x = self.dash.airDashSpeed * self.direction.x
+		} else if self.movementState == .DASH_JUMPING_RECOIL {
+			self.velocity.x = self.gunRecoil.dashJumpRecoilSpeed * self.direction.x
 		} else {
 			self.velocity.x = x.speed * self.direction.x
 		}
@@ -157,13 +211,31 @@ updateVelocityX :: proc(self: ^Actor) {
 	}
 }
 
+getTrailColor :: proc(self: ^Actor) -> rl.Color {
+	if self.movementState == .DASHING || self.movementState == .DASH_JUMPING {
+		return self.dash.trailColor
+	} else if self.movementState == .DASH_JUMPING_RECOIL {
+		return self.gunRecoil.trailColor
+	}
+	return rl.WHITE
+}
+
+getTrailDuration :: proc(self: ^Actor) -> f64 {
+	if self.movementState == .DASHING || self.movementState == .DASH_JUMPING {
+		return self.dash.trailDuration
+	} else if self.movementState == .DASH_JUMPING_RECOIL {
+		return self.gunRecoil.trailDuration
+	}
+	return 0
+}
+
 getDirectionVector :: proc(facing: Direction) -> Vector2I {
 	directionVector := DirectionVector
 	return directionVector[facing]
 }
 
 isDashingOrDashJumping :: proc(self: ^Actor) -> bool {
-	return timerIsRunning(&self.dash.timer) || self.isDashJumping
+	return timerIsRunning(&self.dash.timer) || self.movementState == .DASH_JUMPING
 }
 
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
@@ -182,38 +254,72 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		timerUpdate(&movement.jump.coyoteTimer, &movement, proc(entity: ^Actor) {
 			fmt.printf("coyote timer complete\n")
 		})
-		timerUpdate(&movement.dash.timer, &movement, proc(entity: ^Actor) {
-			fmt.printf("dash timer complete\n")
+		timerUpdate(&movement.dash.timer, &movement, proc(actor: ^Actor) {
+			if isGrounded(actor) {
+				if actor.velocity.x != 0 {
+					actor.movementState = .MOVING
+				} else {
+					actor.movementState = .IDLE
+				}
+			}
 		})
 		timerUpdate(&movement.dash.cooldown, &movement, proc(entity: ^Actor) {
 			fmt.printf("dash cooldown timer complete\n")
 		})
-		if isDashingOrDashJumping(&movement) {
-			timerUpdate(&movement.dash.trailSpawnTimer, entity, proc(entity: ^GameEntity) {
-				addTrail(entity)
+		timerUpdate(&movement.gunRecoil.timer, entity, proc(entity: ^GameEntity) {
+			fmt.printf("gun recoil timer complete\n")
+		})
+		// TODO: buffer reload when not grounded
+		if isGrounded(&movement) {
+			timerUpdate(&movement.gunRecoil.cooldown, entity, proc(entity: ^GameEntity) {
+				fmt.printf("gun recoil cooldown timer complete\n")
+			})
+		}
+		if movement.movementState == .DASHING ||
+		   movement.movementState == .DASH_JUMPING ||
+		   movement.movementState == .DASH_JUMPING_RECOIL {
+			timerUpdate(&movement.dash.trailSpawnTimer, &movement, proc(movement: ^Actor) {
+				addTrail(movement, getTrailColor(movement), getTrailDuration(movement))
 			})
 		}
 
+		// if movement.velocity.x == 0 {
+		// 	movement.movementState = .IDLE
+		// }
 
 		isGroundedNow := isGrounded(&movement)
 		if isGroundedNow {
-			movement.isDashJumping = false
 			timerStop(&movement.jump.coyoteTimer)
+			if movement.movementState != .DASHING {
+				if movement.velocity.x != 0 {
+					movement.movementState = .MOVING
+				} else {
+					movement.movementState = .IDLE
+				}
+			}
 		} else if movement.wasGrounded && !isGroundedNow {
 			timerStart(&movement.jump.coyoteTimer, &movement, proc(self: ^Actor) {
 				fmt.printf("coyote timer started\n")
 			})
+			if movement.velocity.y > 0 {
+				movement.movementState = .FALLING
+			} else {
+				movement.movementState = .JUMPING
+			}
 		}
 		movement.wasGrounded = isGroundedNow
 
 
 		// vertical movement
-		if isGrounded(&movement) && movement.velocity.y > 0 {
+		if isGrounded(&movement) &&
+		   movement.velocity.y > 0 &&
+		   timerIsRunning(&movement.gunRecoil.timer) {
 			movement.velocity.y = 0
 		} else {
 			movement.velocity.y += (getGravity(&movement, &entity.input) * dt)
 		}
 		moveActorY(&movement, solids[:], movement.velocity.y * dt)
+
 	case Solid:
 		moveSolid(entity, gameState, movement.direction * movement.velocity * dt)
 	//noop
@@ -229,7 +335,7 @@ onJumpKeyPressed :: proc(self: ^GameEntity) -> bool {
 
 		// if player was dashing when jumping, enter dash jumping to give extra speed while jumping
 		if timerIsRunning(&movement.dash.timer) {
-			movement.isDashJumping = true
+			movement.movementState = .DASH_JUMPING
 		}
 		return true
 	}

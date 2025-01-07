@@ -88,6 +88,17 @@ main :: proc() {
 					speed = 300,
 					airDashSpeed = 200,
 					trailSpawnTimer = {running = true, type = .Repeating, duration = 0.1 / 8},
+					trailColor = rl.BLUE,
+					trailDuration = 0.15,
+				},
+				gunRecoil = {
+					groundSpeed = 450,
+					airSpeed = 900,
+					dashJumpRecoilSpeed = 300,
+					timer = {duration = 0.05},
+					cooldown = {duration = 0.5},
+					trailColor = rl.ORANGE,
+					trailDuration = 0.22,
 				},
 			},
 			input = Input{},
@@ -189,6 +200,7 @@ update :: proc() {
 			gameState,
 			onJumpKeyPressed = onJumpKeyPressed,
 			onDashkeyPressed = onDashkeyPressed,
+			onFireKeyPressed = onFireKeyPressed,
 		)
 		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
@@ -218,9 +230,9 @@ draw :: proc() {
 
 	rl.BeginMode2D(gameCamera())
 
-	rl.BeginShaderMode(shader)
+	// rl.BeginShaderMode(shader)
 	drawTrails(gameState)
-	rl.EndShaderMode()
+	// rl.EndShaderMode()
 	for _, &entity in gameState.entities {
 		if gameState.debug.show_colliders {
 			switch &movement in entity.movement {
@@ -241,13 +253,14 @@ draw :: proc() {
 					)
 
 					debug_text := fmt.tprintf(
-						"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\n",
+						"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\nmovement state: %v\n",
 						rl.Vector2 {
 							math.round(movement.velocity.x),
 							math.round(movement.velocity.y),
 						},
 						movement.touching[.UP],
 						movement.touching[.DOWN],
+						movement.movementState,
 					)
 					ctext := strings.clone_to_cstring(debug_text)
 					textPosition := movement.position + {-100, -75}

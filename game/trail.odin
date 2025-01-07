@@ -9,17 +9,12 @@ Trail :: struct {
 	duration:  f64,
 }
 
-addTrail :: proc(entity: ^GameEntity) {
-	actor := &entity.movement.(Actor)
-	if actor == nil {
-		return
-	}
-
+addTrail :: proc(actor: ^Actor, color: rl.Color, duration: f64) {
 	trail := Trail {
-		rectangle = rl.Rectangle{f32(entity.position.x), f32(entity.position.y), 8, 16},
-		color     = rl.BLUE,
+		rectangle = rl.Rectangle{f32(actor.position.x), f32(actor.position.y), 8, 16},
+		color     = color,
 		createdAt = rl.GetTime(),
-		duration  = 0.2,
+		duration  = duration,
 	}
 	append(&gameState.trails, trail)
 }

@@ -29,6 +29,7 @@ updateInput :: proc(
 	_gameState: ^GameState,
 	onJumpKeyPressed: proc(self: ^GameEntity) -> bool,
 	onDashkeyPressed: proc(self: ^GameEntity) -> bool,
+	onFireKeyPressed: proc(self: ^GameEntity) -> bool,
 ) {
 	if input, ok := &entity.input.(Input); ok {
 		directionalInput: rl.Vector2
@@ -62,6 +63,10 @@ updateInput :: proc(
 			onDashkeyPressed(entity)
 		}
 
+		if fireKeyPressed() {
+			onFireKeyPressed(entity)
+		}
+
 		// no need to normalize as we separate horizontal and vertical movement
 		entity.direction^ = directionalInput
 		// input.directionalInput = linalg.normalize0(directionalInput)
@@ -78,4 +83,8 @@ jumpKeyReleased :: proc() -> bool {
 
 dashKeyPressed :: proc() -> bool {
 	return rl.IsKeyDown(.Z)
+}
+
+fireKeyPressed :: proc() -> bool {
+	return rl.IsKeyDown(.C)
 }
