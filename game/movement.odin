@@ -194,7 +194,11 @@ updateVelocityX :: proc(self: ^Actor) {
 	switch x in self.xSpeed {
 	case LinearSpeed:
 		if timerIsRunning(&self.gunRecoil.timer) {
-			self.velocity.x = self.gunRecoil.groundSpeed * -f32(getDirectionVector(self.facing).x)
+			speed := self.gunRecoil.groundSpeed
+			if !isGrounded(self) {
+				speed = self.gunRecoil.airSpeed
+			}
+			self.velocity.x = speed * -f32(getDirectionVector(self.facing).x)
 		} else if self.movementState == .DASHING {
 			self.velocity.x = self.dash.speed * f32(getDirectionVector(self.facing).x)
 		} else if !isGrounded(self) && self.movementState == .DASH_JUMPING {
