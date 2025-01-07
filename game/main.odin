@@ -9,6 +9,9 @@ import "core:strings"
 // vendor
 import rl "vendor:raylib"
 
+// deps
+import ldtk "../ldtk"
+
 PIXEL_WINDOW_HEIGHT :: 180
 TILE_SIZE :: 8
 
@@ -35,10 +38,14 @@ Entity :: struct {
 }
 
 GameState :: struct {
-	player:   ^GameEntity,
-	debug:    DebugOptions,
-	entities: map[i32]GameEntity,
-	trails:   [dynamic]Trail,
+	player:           ^GameEntity,
+	debug:            DebugOptions,
+	entities:         map[i32]GameEntity,
+	trails:           [dynamic]Trail,
+	levels:           map[string]ldtk.Level,
+	current_level_id: string,
+	// TODO: this should be inside level
+	current_spawn:    PlayerSpawn,
 }
 gameState: ^GameState
 idCounter: i32 = 0
@@ -52,6 +59,8 @@ main :: proc() {
 	gameState = new(GameState)
 	gameState^ = GameState {
 		debug = {show_colliders = true},
+		levels = load_levels(WORLD_FILE),
+		current_level_id = START_LEVEL_ID,
 	}
 	defer free(gameState)
 
@@ -67,110 +76,83 @@ main :: proc() {
 	fmt.printf("shader: %v\n", shader)
 
 	rl.SetTargetFPS(60)
+	load_level(gameState, gameState.current_level_id)
 	// add player
-	id, player := addGameEntity(
-		{
-			type = Player{},
-			movement = Actor {
-				velocity = {0, 0},
-				xSpeed = LinearSpeed{speed = 50},
-				collider = {0, 0, 8, 16},
-				colliderColor = rl.GREEN,
-				jump = {
-					height = 60,
-					timeToPeak = 0.5,
-					timeToDescent = 0.3,
-					coyoteTimer = {duration = 0.5},
-				},
-				dash = {
-					timer = {duration = 0.1},
-					cooldown = {duration = 0.5},
-					speed = 300,
-					airDashSpeed = 200,
-					trailSpawnTimer = {running = true, type = .Repeating, duration = 0.1 / 8},
-					trailColor = rl.BLUE,
-					trailDuration = 0.15,
-				},
-				gunRecoil = {
-					groundSpeed = 450,
-					airSpeed = 900,
-					dashJumpRecoilSpeed = 300,
-					timer = {duration = 0.05},
-					cooldown = {duration = 0.5},
-					trailColor = rl.ORANGE,
-					trailDuration = 0.22,
-				},
-			},
-			input = Input{},
-		},
-	)
+	spawn_player(gameState)
 
-	// game setup
-	gameState.player = player
 
-	addGameEntity(
-		{
-			movement = Solid {
-				position = {16, 24},
-				velocity = {20, 20},
-				collider = {0, 0, 8, 8},
-				colliderColor = rl.RED,
-			},
-			routine = Routine {
-				repeat = true,
-				steps = {
-					MoveToPosition{to = {0, 24}},
-					HoldPosition{duration = 1},
-					MoveToPosition{to = {16, 24}},
-					HoldPosition{duration = 1},
-				},
-			},
-		},
-	)
-	addGameEntity(
-		{movement = Solid{position = {32, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
-	)
-	addGameEntity(
-		{
-			movement = Solid {
-				position = {16, 64},
-				velocity = {20, 20},
-				collider = {0, 0, 8, 8},
-				colliderColor = rl.RED,
-			},
-			routine = Routine {
-				repeat = true,
-				steps = {
-					MoveToPosition{to = {0, 64}},
-					HoldPosition{duration = 1},
-					MoveToPosition{to = {16, 64}},
-					HoldPosition{duration = 1},
-				},
-			},
-		},
-	)
-	addGameEntity(
-		{movement = Solid{position = {24, 64}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
-	)
+	// addGameEntity(
+	// 	{
+	// 		movement = Solid {
+	// 			position = {16, 24},
+	// 			velocity = {20, 20},
+	// 			collider = {0, 0, 8, 8},
+	// 			colliderColor = rl.RED,
+	// 		},
+	// 		routine = Routine {
+	// 			repeat = true,
+	// 			steps = {
+	// 				MoveToPosition{to = {0, 24}},
+	// 				HoldPosition{duration = 1},
+	// 				MoveToPosition{to = {16, 24}},
+	// 				HoldPosition{duration = 1},
+	// 			},
+	// 		},
+	// 	},
+	// )
+	// addGameEntity(
+	// 	{movement = Solid{position = {32, 24}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
+	// )
+	// addGameEntity(
+	// 	{
+	// 		movement = Solid {
+	// 			position = {16, 64},
+	// 			velocity = {20, 20},
+	// 			collider = {0, 0, 8, 8},
+	// 			colliderColor = rl.RED,
+	// 		},
+	// 		routine = Routine {
+	// 			repeat = true,
+	// 			steps = {
+	// 				MoveToPosition{to = {0, 64}},
+	// 				HoldPosition{duration = 1},
+	// 				MoveToPosition{to = {16, 64}},
+	// 				HoldPosition{duration = 1},
+	// 			},
+	// 		},
+	// 	},
+	// )
+	// addGameEntity(
+	// 	{movement = Solid{position = {24, 64}, collider = {0, 0, 8, 8}, colliderColor = rl.RED}},
+	// )
 
-	addGameEntity(
-		{
-			movement = Solid {
-				position = {-10 * TILE_SIZE, 10 * TILE_SIZE},
-				collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
-				colliderColor = rl.RED,
-			},
-		},
-	)
+	// addGameEntity(
+	// 	{
+	// 		movement = Solid {
+	// 			position = {-10 * TILE_SIZE, 10 * TILE_SIZE},
+	// 			collider = {0, 0, 20 * TILE_SIZE, 8 * TILE_SIZE},
+	// 			colliderColor = rl.RED,
+	// 		},
+	// 	},
+	// )
+
 
 	for !rl.WindowShouldClose() {
 		{
-
+			update()
 			draw()
 		}
 	}
 }
 
+
+PlayerSpawn :: struct {
+	position: Vector2I,
+}
+
+addPlayerSpawn :: proc(gameState: ^GameState, marker: PlayerSpawn) {
+	gameState.current_spawn = marker
+}
 
 addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 	idCounter += 1
@@ -208,10 +190,10 @@ update :: proc() {
 
 }
 
+
 draw :: proc() {
 	// https://github.com/varugasu/raylib-shaders/blob/main/fragcoord/fragcoord.cpp
 	dt := rl.GetFrameTime()
-	update()
 	// next https://www.shadertoy.com/view/mtSGDy
 	// https://www.shadertoy.com/view/dtS3Dw
 	// https://www.shadertoy.com/view/Dl23zR
@@ -299,11 +281,10 @@ gameCamera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
-	player_movement := &gameState.player.movement.(Actor)
 
 	return {
 		zoom = h / PIXEL_WINDOW_HEIGHT,
-		target = {f32(player_movement.position.x), f32(player_movement.position.y)},
+		target = get_player_position(),
 		offset = {w / 2, h / 2},
 	}
 }
