@@ -46,6 +46,7 @@ GameState :: struct {
 	current_level_id: string,
 	// TODO: this should be inside level
 	current_spawn:    PlayerSpawn,
+	triggers:         [dynamic]Trigger,
 }
 gameState: ^GameState
 idCounter: i32 = 0
@@ -186,6 +187,7 @@ update :: proc() {
 		)
 		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
+		update_triggers(gameState)
 	}
 
 }

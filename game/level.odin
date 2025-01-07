@@ -18,6 +18,16 @@ load_levels :: proc(world_file: string) -> map[string]ldtk.Level {
 	return levels
 }
 
+// get_level_bounds :: proc(gameState: ^GameState) -> rl.Rectangle {
+// 	level := gameState.levels[gameState.current_level_id]
+// 	return {
+// 		x = 0,
+// 		y = 0,
+// 		width = i32(level.c_width * level.grid_size),
+// 		height = i32(level.c_height * level.grid_size),
+// 	}
+// }
+
 load_level :: proc(gameState: ^GameState, level_id: Maybe(string) = nil) {
 	level_id_to_load := level_id.? or_else gameState.current_level_id
 
@@ -27,11 +37,14 @@ load_level :: proc(gameState: ^GameState, level_id: Maybe(string) = nil) {
 	}
 
 	level := gameState.levels[level_id_to_load]
+	// fmt.printf("Loading level: %s\n", level)
 	for layer in level.layer_instances {
 		switch layer.type {
 		case .IntGrid:
+			// fmt.printf("IntGrid: %v\n", layer)
 			load_int_grid(gameState, layer)
 		case .Entities:
+			// fmt.printf("Entities: %v\n", layer)
 			load_entities(gameState, layer)
 		case .Tiles:
 			fmt.printf("Tiles: %v\n", layer)
@@ -53,11 +66,40 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 		switch entity.identifier {
 		case "Player_Spawn":
 			addPlayerSpawn(gameState, PlayerSpawn{position = position})
+		case "To_Next_Level":
+			field_instance := entity.field_instances[0]
+
+			add_trigger(
+				gameState,
+				Trigger {
+					rect = {
+						x = f32(position.x),
+						y = f32(position.y),
+						width = f32(entity.width),
+						height = f32(entity.height),
+					},
+					event = Level_Transition{next_level_id = field_instance.value.(string)},
+				},
+			)
+
+			fmt.printf("To_Next_Level: %v\n", entity)
+		// 
 		case:
 			assert(false, fmt.tprintf("Unknown entity: %s", entity.identifier))
 		}
 	}
 }
+
+Level_Transition_Trigger :: struct {
+	position:      Vector2I,
+	collider_size: Vector2I,
+	next_level_id: string,
+}
+
+add_level_transition_trigger :: proc(gameState: ^GameState, trigger: Level_Transition_Trigger) {
+
+}
+
 
 load_int_grid :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 	offsetX := i32(layer.grid_size * layer.c_width / 2)
@@ -86,5 +128,5 @@ load_int_grid :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 }
 
 unload_level :: proc(gameState: ^GameState) {
-
+	clear(&gameState.entities)
 }
