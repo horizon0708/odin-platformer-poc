@@ -85,7 +85,6 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	sign := i32(math.sign(f32(player.movement.velocity.x)))
 	// offset the player to the left or right depending on their velocity
 	direction_to_push := getDirectionVector(event.exit_direction)
-	fmt.printf("direction_to_push %v\n", direction_to_push)
 	player_offset_x := event.player_offset.x
 	if direction_to_push.x != 0 {
 		player_offset_x = 0
@@ -100,10 +99,7 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 		i32(transition_trigger.rect.x) + direction_to_push.x * TILE_SIZE + i32(player_offset_x),
 		i32(transition_trigger.rect.y) + direction_to_push.y * TILE_SIZE + i32(player_offset_y),
 	}
-	// fmt.printf("updated player %v\n\n", player)
 
 	id, added_player := addGameEntity(player)
-	// fmt.printf("trigger %v\n\n", transition_trigger)
-	// fmt.printf("added player %v\n\n", added_player)
 	gameState.player = added_player
 }

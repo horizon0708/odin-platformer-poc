@@ -234,22 +234,7 @@ draw :: proc() {
 						rl.ORANGE,
 					)
 
-					debug_text := fmt.tprintf(
-						"player position: %v\nplayer velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\ncolliding_left: %v\ncolliding_right: %v\nmovement state: %v\n",
-						entity.movement.position,
-						rl.Vector2 {
-							math.round(entity.movement.velocity.x),
-							math.round(entity.movement.velocity.y),
-						},
-						movement.touching[.UP],
-						movement.touching[.DOWN],
-						movement.touching[.LEFT],
-						movement.touching[.RIGHT],
-						entity.movement.movementState,
-					)
-					ctext := strings.clone_to_cstring(debug_text)
-					textPosition := entity.movement.position + {-100, -75}
-					rl.DrawText(ctext, textPosition.x, textPosition.y, 1, rl.WHITE)
+
 				}
 
 				rl.DrawRectangle(
@@ -276,6 +261,29 @@ draw :: proc() {
 
 	rl.EndMode2D()
 	rl.BeginMode2D(uiCamera())
+
+	if entity, ok := get_player().?; ok {
+		movement := entity.movement
+		actor := &movement.variant.(Actor)
+
+		debug_text := fmt.tprintf(
+			"player position: %v\nplayer velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\ncolliding_left: %v\ncolliding_right: %v\nmovement state: %v\n",
+			entity.movement.position,
+			rl.Vector2 {
+				math.round(entity.movement.velocity.x),
+				math.round(entity.movement.velocity.y),
+			},
+			actor.touching[.UP],
+			actor.touching[.DOWN],
+			actor.touching[.LEFT],
+			actor.touching[.RIGHT],
+			entity.movement.movementState,
+		)
+		ctext := strings.clone_to_cstring(debug_text)
+		textPosition := Vector2I{0, 0}
+		rl.DrawText(ctext, textPosition.x, textPosition.y, 15, rl.WHITE)
+	}
+
 	rl.EndMode2D()
 	rl.EndDrawing()
 }
@@ -293,5 +301,7 @@ gameCamera :: proc() -> rl.Camera2D {
 }
 
 uiCamera :: proc() -> rl.Camera2D {
-	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
+	// return {}
+	// return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
+	return {zoom = 1}
 }
