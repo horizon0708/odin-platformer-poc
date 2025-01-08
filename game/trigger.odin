@@ -1,8 +1,8 @@
 package game
 
 import ldtk "../ldtk"
+import fmt "core:fmt"
 import rl "vendor:raylib"
-
 Trigger_Event :: union {
 	Level_Transition,
 }
@@ -52,6 +52,7 @@ update_triggers :: proc(gameState: ^GameState) -> bool {
 		was_colliding := trigger.colliding
 		trigger.colliding = rl.CheckCollisionRecs(trigger.rect, player_rect)
 
+
 		if !was_colliding && trigger.colliding && !trigger.disabled {
 			player_offset := rl.Vector2 {
 				player_rect.x - trigger.rect.x,
@@ -78,6 +79,10 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	// }
 	player := event.player
 	player.position^ = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)}
-	id, added_player := addGameEntity(event.player)
+	fmt.printf("updated player %v\n\n", player)
+
+	id, added_player := addGameEntity(player)
+	fmt.printf("trigger %v\n\n", transition_trigger)
+	fmt.printf("added player %v\n\n", added_player)
 	gameState.player = added_player
 }
