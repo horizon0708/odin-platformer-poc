@@ -4,22 +4,31 @@ import fmt "core:fmt"
 import "core:math"
 import rl "vendor:raylib"
 
+Movement :: struct {
+	variant:       MovementVariant,
+	entityId:      i32,
+	position:      Vector2I,
+	facing:        Direction,
+	direction:     rl.Vector2,
+	velocity:      rl.Vector2,
+	remainder:     rl.Vector2,
+	collider:      Collider,
+	movementState: MovementState,
+}
+
+Collider :: struct {
+	offset:   Vector2I,
+	size:     Vector2I,
+	color:    rl.Color,
+	disabled: bool,
+}
+
 MovementVariant :: union {
 	Actor,
 	Solid,
 }
 
-Solid :: struct {
-	id:            i32,
-	position:      Vector2I,
-	facing:        Direction,
-	direction:     rl.Vector2,
-	velocity:      rl.Vector2,
-	collider:      Vector4I,
-	colliderColor: rl.Color,
-	collidable:    bool,
-	remainder:     rl.Vector2,
-}
+Solid :: struct {}
 
 Vector2I :: [2]i32
 Vector3I :: [3]i32
@@ -99,43 +108,21 @@ MovementState :: enum {
 }
 
 Actor :: struct {
-	id:            i32,
-	position:      Vector2I,
-	facing:        Direction,
-	direction:     rl.Vector2,
-	xSpeed:        Speed,
-	velocity:      rl.Vector2,
-	remainder:     rl.Vector2,
-	collider:      Vector4I, // {offsetX, offsetY, width, height}
-	colliderColor: rl.Color,
-	jump:          Jump,
-	dash:          Dash,
-	gunRecoil:     GunRecoil,
-	colliding:     CollisionInfo,
-	touching:      map[Direction][dynamic]i32,
-	wasGrounded:   bool,
-	movementState: MovementState,
+	xSpeed:      Speed,
+	jump:        Jump,
+	dash:        Dash,
+	gunRecoil:   GunRecoil,
+	colliding:   CollisionInfo,
+	touching:    map[Direction][dynamic]i32,
+	wasGrounded: bool,
 }
 
 initMovement :: proc(entity: ^GameEntity) {
-	switch &movement in entity.movement {
-	case Actor:
-		movement.id = entity.id
-		entity.facing = &movement.facing
-		entity.position = &movement.position
-		entity.velocity = &movement.velocity
-		entity.direction = &movement.direction
-	case Solid:
-		movement.id = entity.id
-		entity.facing = &movement.facing
-		entity.position = &movement.position
-		entity.velocity = &movement.velocity
-		entity.direction = &movement.direction
-	}
+	entity.movement.entityId = entity.id
 }
 
 onFireKeyPressed :: proc(self: ^GameEntity) -> bool {
-	actor := &(self.movement.(Actor))
+	actor := &(self.movement.variant.(Actor))
 	if actor == nil {
 		return false
 	}
@@ -149,8 +136,8 @@ onFireKeyPressed :: proc(self: ^GameEntity) -> bool {
 	timerStart(&actor.gunRecoil.timer, actor, proc(self: ^Actor) {
 		fmt.printf("gun recoil timer started\n")
 	})
-	if actor.movementState == .DASH_JUMPING {
-		actor.movementState = .DASH_JUMPING_RECOIL
+	if self.movement.movementState == .DASH_JUMPING {
+		self.movement.movementState = .DASH_JUMPING_RECOIL
 	}
 	fmt.printf("fire key pressed\n")
 	return true
@@ -161,7 +148,7 @@ fireAvailable :: proc(self: ^Actor) -> bool {
 }
 
 onDashkeyPressed :: proc(self: ^GameEntity) -> bool {
-	actor := &(self.movement.(Actor))
+	actor := &(self.movement.variant.(Actor))
 	if actor == nil {
 		return false
 	}
@@ -169,11 +156,11 @@ onDashkeyPressed :: proc(self: ^GameEntity) -> bool {
 		return false
 	}
 
-	timerStart(&actor.dash.timer, actor, proc(self: ^Actor) {
-		self.movementState = .DASHING
+	timerStart(&actor.dash.timer, self, proc(self: ^GameEntity) {
+		self.movement.movementState = .DASHING
 		fmt.printf("dash timer started\n")
 	})
-	timerStart(&actor.dash.cooldown, actor, proc(self: ^Actor) {
+	timerStart(&actor.dash.cooldown, self, proc(self: ^GameEntity) {
 		fmt.printf("dash cooldown timer started\n")
 	})
 	fmt.printf("dash key pressed\n")
@@ -188,47 +175,58 @@ dashAvailable :: proc(self: ^Actor) -> bool {
 	)
 }
 
-updateVelocityX :: proc(self: ^Actor) {
+updateVelocityX :: proc(self: ^GameEntity) {
 	dt := rl.GetFrameTime()
+	actor, ok := &self.movement.variant.(Actor)
+	if !ok {
+		return
+	}
 
-	switch x in self.xSpeed {
+
+	switch x in actor.xSpeed {
 	case LinearSpeed:
-		if timerIsRunning(&self.gunRecoil.timer) {
-			speed := self.gunRecoil.groundSpeed
-			if !isGrounded(self) {
-				speed = self.gunRecoil.airSpeed
+		if timerIsRunning(&actor.gunRecoil.timer) {
+			speed := actor.gunRecoil.groundSpeed
+			if !isGrounded(actor) {
+				speed = actor.gunRecoil.airSpeed
 			}
-			self.velocity.x = speed * -f32(getDirectionVector(self.facing).x)
-		} else if self.movementState == .DASHING {
-			self.velocity.x = self.dash.speed * f32(getDirectionVector(self.facing).x)
-		} else if !isGrounded(self) && self.movementState == .DASH_JUMPING {
-			self.velocity.x = self.dash.airDashSpeed * self.direction.x
-		} else if self.movementState == .DASH_JUMPING_RECOIL {
-			self.velocity.x = self.gunRecoil.dashJumpRecoilSpeed * self.direction.x
+			self.movement.velocity.x = speed * -f32(getDirectionVector(self.movement.facing).x)
+		} else if self.movement.movementState == .DASHING {
+			self.movement.velocity.x =
+				actor.dash.speed * f32(getDirectionVector(self.movement.facing).x)
+		} else if !isGrounded(actor) && self.movement.movementState == .DASH_JUMPING {
+			self.movement.velocity.x = actor.dash.airDashSpeed * self.movement.direction.x
+		} else if self.movement.movementState == .DASH_JUMPING_RECOIL {
+			self.movement.velocity.x =
+				actor.gunRecoil.dashJumpRecoilSpeed * self.movement.direction.x
 		} else {
-			self.velocity.x = x.speed * self.direction.x
+			self.movement.velocity.x = x.speed * self.movement.direction.x
 		}
 	case AcceleratedSpeed:
 		// TODO: clamp to max speed
 		// Sort out direction etc
-		self.velocity.x = x.baseSpeed + x.acceleration * dt
+		self.movement.velocity.x = x.baseSpeed + x.acceleration * dt
 	}
 }
 
-getTrailColor :: proc(self: ^Actor) -> rl.Color {
-	if self.movementState == .DASHING || self.movementState == .DASH_JUMPING {
-		return self.dash.trailColor
-	} else if self.movementState == .DASH_JUMPING_RECOIL {
-		return self.gunRecoil.trailColor
+getTrailColor :: proc(entity: ^GameEntity) -> rl.Color {
+	actor := &entity.movement.variant.(Actor)
+	if entity.movement.movementState == .DASHING ||
+	   entity.movement.movementState == .DASH_JUMPING {
+		return actor.dash.trailColor
+	} else if entity.movement.movementState == .DASH_JUMPING_RECOIL {
+		return actor.gunRecoil.trailColor
 	}
 	return rl.WHITE
 }
 
-getTrailDuration :: proc(self: ^Actor) -> f64 {
-	if self.movementState == .DASHING || self.movementState == .DASH_JUMPING {
-		return self.dash.trailDuration
-	} else if self.movementState == .DASH_JUMPING_RECOIL {
-		return self.gunRecoil.trailDuration
+getTrailDuration :: proc(entity: ^GameEntity) -> f64 {
+	actor := &entity.movement.variant.(Actor)
+	if entity.movement.movementState == .DASHING ||
+	   entity.movement.movementState == .DASH_JUMPING {
+		return actor.dash.trailDuration
+	} else if entity.movement.movementState == .DASH_JUMPING_RECOIL {
+		return actor.gunRecoil.trailDuration
 	}
 	return 0
 }
@@ -238,32 +236,38 @@ getDirectionVector :: proc(facing: Direction) -> Vector2I {
 	return directionVector[facing]
 }
 
-isDashingOrDashJumping :: proc(self: ^Actor) -> bool {
-	return timerIsRunning(&self.dash.timer) || self.movementState == .DASH_JUMPING
+isDashingOrDashJumping :: proc(entity: ^GameEntity) -> bool {
+	actor := &entity.movement.variant.(Actor)
+	if actor == nil {
+		return false
+	}
+
+	return timerIsRunning(&actor.dash.timer) || entity.movement.movementState == .DASH_JUMPING
 }
 
 updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 	dt := rl.GetFrameTime()
 
-	switch &movement in entity.movement {
+	switch &movement in entity.movement.variant {
 	case Actor:
 		// horizontal movement
 		solids := getSolids(gameState)
 		defer delete(solids)
-		setTouchingSolids(&movement, solids[:])
-		updateVelocityX(&movement)
-
-		moveActorX(&movement, solids[:], movement.velocity.x * dt)
+		set_touching_solids(entity, solids[:])
+		updateVelocityX(entity)
+		moveActorX(entity, solids[:], entity.movement.velocity.x * dt)
+		// fmt.printf("direction %v\n", entity.movement.direction)
 
 		timerUpdate(&movement.jump.coyoteTimer, &movement, proc(entity: ^Actor) {
 			fmt.printf("coyote timer complete\n")
 		})
-		timerUpdate(&movement.dash.timer, &movement, proc(actor: ^Actor) {
+		timerUpdate(&movement.dash.timer, entity, proc(entity: ^GameEntity) {
+			actor := &entity.movement.variant.(Actor)
 			if isGrounded(actor) {
-				if actor.velocity.x != 0 {
-					actor.movementState = .MOVING
+				if entity.movement.velocity.x != 0 {
+					entity.movement.movementState = .MOVING
 				} else {
-					actor.movementState = .IDLE
+					entity.movement.movementState = .IDLE
 				}
 			}
 		})
@@ -279,11 +283,11 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 				fmt.printf("gun recoil cooldown timer complete\n")
 			})
 		}
-		if movement.movementState == .DASHING ||
-		   movement.movementState == .DASH_JUMPING ||
-		   movement.movementState == .DASH_JUMPING_RECOIL {
-			timerUpdate(&movement.dash.trailSpawnTimer, &movement, proc(movement: ^Actor) {
-				addTrail(movement, getTrailColor(movement), getTrailDuration(movement))
+		if entity.movement.movementState == .DASHING ||
+		   entity.movement.movementState == .DASH_JUMPING ||
+		   entity.movement.movementState == .DASH_JUMPING_RECOIL {
+			timerUpdate(&movement.dash.trailSpawnTimer, entity, proc(entity: ^GameEntity) {
+				addTrail(entity, getTrailColor(entity), getTrailDuration(entity))
 			})
 		}
 
@@ -294,21 +298,21 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 		isGroundedNow := isGrounded(&movement)
 		if isGroundedNow {
 			timerStop(&movement.jump.coyoteTimer)
-			if movement.movementState != .DASHING {
-				if movement.velocity.x != 0 {
-					movement.movementState = .MOVING
+			if entity.movement.movementState != .DASHING {
+				if entity.movement.velocity.x != 0 {
+					entity.movement.movementState = .MOVING
 				} else {
-					movement.movementState = .IDLE
+					entity.movement.movementState = .IDLE
 				}
 			}
 		} else if movement.wasGrounded && !isGroundedNow {
 			timerStart(&movement.jump.coyoteTimer, &movement, proc(self: ^Actor) {
 				fmt.printf("coyote timer started\n")
 			})
-			if movement.velocity.y > 0 {
-				movement.movementState = .FALLING
+			if entity.movement.velocity.y > 0 {
+				entity.movement.movementState = .FALLING
 			} else {
-				movement.movementState = .JUMPING
+				entity.movement.movementState = .JUMPING
 			}
 		}
 		movement.wasGrounded = isGroundedNow
@@ -316,30 +320,30 @@ updateMovement :: proc(entity: ^GameEntity, gameState: ^GameState) {
 
 		// vertical movement
 		if isGrounded(&movement) &&
-		   movement.velocity.y > 0 &&
+		   entity.movement.velocity.y > 0 &&
 		   timerIsRunning(&movement.gunRecoil.timer) {
-			movement.velocity.y = 0
+			entity.movement.velocity.y = 0
 		} else {
-			movement.velocity.y += (getGravity(&movement, &entity.input) * dt)
+			entity.movement.velocity.y += (getGravity(entity) * dt)
 		}
-		moveActorY(&movement, solids[:], movement.velocity.y * dt)
+		moveActorY(entity, solids[:], entity.movement.velocity.y * dt)
 
 	case Solid:
-		moveSolid(entity, gameState, movement.direction * movement.velocity * dt)
+		moveSolid(entity, gameState, entity.movement.direction * entity.movement.velocity * dt)
 	//noop
 	}
 }
 
 onJumpKeyPressed :: proc(self: ^GameEntity) -> bool {
-	movement := (&(self.movement.(Actor))) or_return
+	movement := (&(self.movement.variant.(Actor))) or_return
 
 	if isGrounded(movement) || isCoyoteTimeActive(movement) {
-		movement.velocity.y = getJumpVelocity(movement)
+		self.movement.velocity.y = getJumpVelocity(movement)
 		timerStop(&movement.jump.coyoteTimer)
 
 		// if player was dashing when jumping, enter dash jumping to give extra speed while jumping
 		if timerIsRunning(&movement.dash.timer) {
-			movement.movementState = .DASH_JUMPING
+			self.movement.movementState = .DASH_JUMPING
 		}
 		return true
 	}
@@ -351,23 +355,29 @@ isCoyoteTimeActive :: proc(movement: ^Actor) -> bool {
 	return timerIsRunning(&movement.jump.coyoteTimer)
 }
 
-getGravity :: proc(movement: ^Actor, input: ^InputVariant) -> f32 {
-	assert(movement.jump.height > 0)
-	assert(movement.jump.timeToPeak > 0)
-	assert(movement.jump.timeToDescent > 0)
+getGravity :: proc(entity: ^GameEntity) -> f32 {
+	actor, ok := &entity.movement.variant.(Actor)
+	if !ok {
+		return 0
+	}
 
 
-	jumpGravity :=
-		(2.0 * movement.jump.height) / (movement.jump.timeToPeak * movement.jump.timeToPeak)
+	assert(actor.jump.height > 0)
+	assert(actor.jump.timeToPeak > 0)
+	assert(actor.jump.timeToDescent > 0)
+
+
+	jumpGravity := (2.0 * actor.jump.height) / (actor.jump.timeToPeak * actor.jump.timeToPeak)
 	fallGravity :=
-		(2.0 * movement.jump.height) / (movement.jump.timeToDescent * movement.jump.timeToDescent)
+		(2.0 * actor.jump.height) / (actor.jump.timeToDescent * actor.jump.timeToDescent)
 
 	extendJump := false
-	if input, ok := input.(Input); ok {
+	input, input_ok := &entity.input.variant.(PlayerInput)
+	if input_ok {
 		extendJump = input.jumpHeldDown
 	}
 
-	if movement.velocity.y >= 0 {
+	if entity.movement.velocity.y >= 0 {
 		return fallGravity
 	} else if extendJump {
 		return jumpGravity
@@ -385,23 +395,75 @@ getJumpVelocity :: proc(movement: ^Actor) -> f32 {
 	return (-2.0 * movement.jump.height) / movement.jump.timeToPeak
 }
 
-moveActorX :: proc(self: ^Actor, solids: []^GameEntity, x: f32, onCollision: proc(id: i32) = nil) {
-	self.remainder.x += x
-	move := i32(math.round(self.remainder.x))
+moveActorX :: proc(
+	entitiy: ^GameEntity,
+	solids: []^GameEntity,
+	x: f32,
+	onCollision: proc(id: i32) = nil,
+) {
+	actor := &entitiy.movement.variant.(Actor)
+	if actor == nil {
+		return
+	}
+	movement := &entitiy.movement
+
+	movement.remainder.x += x
+	move := i32(math.round(movement.remainder.x))
 
 	if move != 0 {
-		self.remainder.x -= f32(move)
+		movement.remainder.x -= f32(move)
 		sign := i32(math.sign(f32(move)))
 		for {
 			if (move == 0) {
 				break
 			}
 			// Q: do we need this when we now have touching field?
-			colliding_solids := getCollidingSolidIds(self, solids, {sign, 0})
+			colliding_solids := get_colliding_solid_ids(entitiy, solids, {sign, 0})
 			if len(colliding_solids) == 0 {
-				self.position.x += sign
+				movement.position.x += sign
 				move -= sign
 			} else {
+				fmt.printf("colliding solids %v\n", colliding_solids)
+				if onCollision != nil {
+					onCollision(entitiy.id)
+				}
+				break
+			}
+		}
+	}
+}
+
+moveActorY :: proc(
+	self: ^GameEntity,
+	solids: []^GameEntity,
+	y: f32,
+	onCollision: proc(id: i32) = nil,
+) {
+	actor := &self.movement.variant.(Actor)
+	if actor == nil {
+		return
+	}
+
+	self.movement.remainder.y += y
+	move := i32(math.round(self.movement.remainder.y))
+
+	if move != 0 {
+		self.movement.remainder.y -= f32(move)
+		sign := i32(math.sign(f32(move)))
+		for {
+			if (move == 0) {
+				break
+			}
+			colliding_solids := get_colliding_solid_ids(self, solids, {0, sign})
+			if len(colliding_solids) == 0 {
+				self.movement.position.y += sign
+				fmt.printf("position %v\n", self.movement.position)
+
+				move -= sign
+			} else {
+				// on hitting something, y velocity is reset so that
+				// hitting on the head makes you immediately fall
+				self.movement.velocity.y = 0
 				if onCollision != nil {
 					onCollision(self.id)
 				}
@@ -417,16 +479,17 @@ Solids move without checking for collisions with other solids.
 If it is told to move by a certain amount, it will move by that amount.
 */
 moveSolid :: proc(entity: ^GameEntity, gameState: ^GameState, diff: rl.Vector2) {
-	solid, ok := &entity.movement.(Solid)
-	if !ok {
+	solid := &entity.movement.variant.(Solid)
+	if solid == nil {
 		return
 	}
+	movement := &entity.movement
 
-	solid.remainder.x += diff.x
-	solid.remainder.y += diff.y
+	movement.remainder.x += diff.x
+	movement.remainder.y += diff.y
 
-	moveX := i32(math.round(solid.remainder.x))
-	moveY := i32(math.round(solid.remainder.y))
+	moveX := i32(math.round(movement.remainder.x))
+	moveY := i32(math.round(movement.remainder.y))
 	actors := getActors(gameState)
 	solids := getSolids(gameState)
 	defer delete(actors)
@@ -438,63 +501,80 @@ moveSolid :: proc(entity: ^GameEntity, gameState: ^GameState, diff: rl.Vector2) 
 		// so that Actors moved by it do not get stuck on it
 		// note: not sure why this is needed yet
 		// also I haven't used this to filter out collisions yet
-		solid.collidable = false
+		movement.collider.disabled = true
+
+		solidBounds := getColliderBounds(entity)
 
 		if moveX != 0 {
-			solid.remainder.x -= f32(moveX)
-			solid.position.x += moveX
+			movement.remainder.x -= f32(moveX)
+			movement.position.x += moveX
 			if (moveX > 0) {
-				for &actor in actors {
-					if isOverlapping(solid, actor) {
-						actorMoveAmt := getColliderRight(solid) - getColliderLeft(actor)
-						moveActorX(actor, solids[:], f32(actorMoveAmt), onActorSquish)
-					} else if isRiding(solid, actor) {
-						moveActorX(actor, solids[:], f32(moveX))
+				for &actor_entity in actors {
+					actor, ok := &actor_entity.movement.variant.(Actor)
+					if !ok {
+						continue
+					}
+
+					actorBounds := getColliderBounds(actor_entity)
+					if isOverlapping(entity, actor_entity) {
+						actorMoveAmt := solidBounds.right - actorBounds.left
+						moveActorX(actor_entity, solids[:], f32(actorMoveAmt), onActorSquish)
+					} else if isRiding(entity, actor) {
+						moveActorX(actor_entity, solids[:], f32(moveX))
 					}
 				}
 			} else {
-				for &actor in actors {
-					if isOverlapping(solid, actor) {
-						actorMoveAmt := getColliderLeft(solid) - getColliderRight(actor)
-						moveActorX(actor, solids[:], f32(actorMoveAmt), onActorSquish)
-					} else if isRiding(solid, actor) {
-						moveActorX(actor, solids[:], f32(moveX))
+				for &actor_entity in actors {
+					actor, ok := &actor_entity.movement.variant.(Actor)
+					if !ok {
+						continue
+					}
+
+					actorBounds := getColliderBounds(actor_entity)
+					if isOverlapping(entity, actor_entity) {
+						actorMoveAmt := solidBounds.left - actorBounds.right
+						moveActorX(actor_entity, solids[:], f32(actorMoveAmt), onActorSquish)
+					} else if isRiding(entity, actor) {
+						moveActorX(actor_entity, solids[:], f32(moveX))
 					}
 				}
 			}
 		}
 		if moveY != 0 {
-			solid.remainder.y -= f32(moveY)
-			solid.position.y += moveY
+			movement.remainder.y -= f32(moveY)
+			movement.position.y += moveY
 			if (moveY > 0) {
 				// going down
-				for &actor in actors {
-					if isOverlapping(solid, actor) {
-						actorMoveAmt := getColliderBottom(solid) - getColliderTop(actor)
-						moveActorY(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+				for &actor_entity in actors {
+					if isOverlapping(entity, actor_entity) {
+						actorBounds := getColliderBounds(actor_entity)
+						// actorMoveAmt := getColliderBottom(solid) - getColliderTop(actor)
+						actorMoveAmt := solidBounds.bottom - actorBounds.top
+						moveActorY(actor_entity, solids[:], f32(actorMoveAmt), onActorSquish)
 					}
 					// for now, you can't ride a solid up
 					// this might change if there is wall climbing
 				}
 			} else {
 				// going up
-				for &actor in actors {
-					if isOverlapping(solid, actor) {
-						actorMoveAmt := getColliderTop(solid) - getColliderBottom(actor)
-						moveActorY(actor, solids[:], f32(actorMoveAmt), onActorSquish)
+				for &actor_entity in actors {
+					if isOverlapping(entity, actor_entity) {
+						actorBounds := getColliderBounds(actor_entity)
+						actorMoveAmt := solidBounds.top - actorBounds.bottom
+						moveActorY(actor_entity, solids[:], f32(actorMoveAmt), onActorSquish)
 					}
 				}
 			}
 		}
 
-		solid.collidable = true
+		movement.collider.disabled = false
 	}
 }
 
-isRiding :: proc(solid: ^Solid, actor: ^Actor) -> bool {
+isRiding :: proc(entity: ^GameEntity, actor: ^Actor) -> bool {
 	isRiding := false
 	for id in actor.touching[.DOWN] {
-		if id == solid.id {
+		if id == entity.id {
 			isRiding = true
 			break
 		}
@@ -506,154 +586,99 @@ onActorSquish :: proc(id: i32) {
 	fmt.printf("actor squished %d \n", id)
 }
 
-getColliderRight_Solid :: proc(solid: ^Solid) -> i32 {
-	return solid.position.x + solid.collider.x + solid.collider.z
+
+Bounds :: struct {
+	left:   i32,
+	right:  i32,
+	top:    i32,
+	bottom: i32,
 }
 
-getColliderRight_Actor :: proc(actor: ^Actor) -> i32 {
-	return actor.position.x + actor.collider.x + actor.collider.z
+/**
+left, right, top, bottom
+*/
+getColliderBounds :: proc(entity: ^GameEntity) -> Bounds {
+	left := entity.movement.position.x + entity.movement.collider.offset.x
+	right := left + entity.movement.collider.size.x
+	top := entity.movement.position.y + entity.movement.collider.offset.y
+	bottom := top + entity.movement.collider.size.y
+	return Bounds{left, right, top, bottom}
 }
 
-getColliderRight :: proc {
-	getColliderRight_Solid,
-	getColliderRight_Actor,
-}
-
-getColliderLeft_Solid :: proc(solid: ^Solid) -> i32 {
-	return solid.position.x + solid.collider.x
-}
-
-getColliderLeft_Actor :: proc(actor: ^Actor) -> i32 {
-	return actor.position.x + actor.collider.x
-}
-
-
-getColliderLeft :: proc {
-	getColliderLeft_Solid,
-	getColliderLeft_Actor,
-}
-
-getColliderBottom_Solid :: proc(solid: ^Solid) -> i32 {
-	return solid.position.y + solid.collider.y + solid.collider.w
-}
-
-getColliderBottom_Actor :: proc(actor: ^Actor) -> i32 {
-	return actor.position.y + actor.collider.y + actor.collider.w
-}
-
-getColliderBottom :: proc {
-	getColliderBottom_Solid,
-	getColliderBottom_Actor,
-}
-
-getColliderTop_Solid :: proc(solid: ^Solid) -> i32 {
-	return solid.position.y + solid.collider.y
-}
-
-getColliderTop_Actor :: proc(actor: ^Actor) -> i32 {
-	return actor.position.y + actor.collider.y
-}
-
-getColliderTop :: proc {
-	getColliderTop_Solid,
-	getColliderTop_Actor,
-}
-
-getActors :: proc(gameState: ^GameState) -> [dynamic]^Actor {
-	actors := [dynamic]^Actor{}
+getActors :: proc(gameState: ^GameState) -> [dynamic]^GameEntity {
+	actors := [dynamic]^GameEntity{}
 	for _, &entity in &gameState.entities {
-		movement := (&(entity.movement.(Actor))) or_continue
-		append(&actors, movement)
+		movement := (&(entity.movement.variant.(Actor))) or_continue
+		append(&actors, &entity)
 	}
 	return actors
 }
 
 // TODO: bitset for collision
 
-moveActorY :: proc(self: ^Actor, solids: []^GameEntity, y: f32, onCollision: proc(id: i32) = nil) {
-	self.remainder.y += y
-	move := i32(math.round(self.remainder.y))
-
-	if move != 0 {
-		self.remainder.y -= f32(move)
-		sign := i32(math.sign(f32(move)))
-		for {
-			if (move == 0) {
-				break
-			}
-			colliding_solids := getCollidingSolidIds(self, solids, {0, sign})
-			if len(colliding_solids) == 0 {
-				self.position.y += sign
-				move -= sign
-			} else {
-				// on hitting something, y velocity is reset so that
-				// hitting on the head makes you immediately fall
-				self.velocity.y = 0
-				if onCollision != nil {
-					onCollision(self.id)
-				}
-				break
-			}
-		}
-	}
-}
 
 // Touching - when the actor is touching a solid in the given direction
 // Colliding - when the actor is actively trying to move into a solid in the given direction
-setTouchingSolids :: proc(self: ^Actor, solids: []^GameEntity) {
+set_touching_solids :: proc(entity: ^GameEntity, solids: []^GameEntity) {
 	for direction in Direction {
 		// Q: why do I have to do this?
 		vectors := DirectionVector
 		dir_vec := vectors[direction]
-		self.touching[direction] = getCollidingSolidIds(self, solids, dir_vec)
+		if actor, ok := &entity.movement.variant.(Actor); ok {
+			actor.touching[direction] = get_colliding_solid_ids(entity, solids, dir_vec)
+		}
 	}
 }
 
 
-isColliding :: proc(self: ^Actor, direction: Direction) -> bool {
-	switch direction {
-	case .LEFT:
-		return len(self.colliding.left) > 0
-	case .RIGHT:
-		return len(self.colliding.right) > 0
-	case .UP:
-		return len(self.colliding.top) > 0
-	case .DOWN:
-		return len(self.colliding.bottom) > 0
+isOverlapping :: proc(entity: ^GameEntity, entity2: ^GameEntity) -> bool {
+	rect1 := to_rect(entity)
+	rect2 := to_rect(entity2)
+	return rl.CheckCollisionRecs(rect1, rect2)
+}
+
+getSolids :: proc(gameState: ^GameState) -> [dynamic]^GameEntity {
+	solids := make([dynamic]^GameEntity)
+	for _, &entity in gameState.entities {
+		if solid, ok := &entity.movement.variant.(Solid); ok {
+			append_elem(&solids, &entity)
+		}
 	}
-	return false
-}
-
-isOverlapping :: proc(solid: ^Solid, actor: ^Actor) -> bool {
-	solid_rect := toRect(solid.position, solid.collider)
-	actor_rect := toRect(actor.position, actor.collider)
-	return rl.CheckCollisionRecs(solid_rect, actor_rect)
+	return solids
 }
 
 
-getCollidingSolidIds :: proc(
-	self: ^Actor,
+get_colliding_solid_ids :: proc(
+	entity: ^GameEntity,
 	solids: []^GameEntity,
 	direction: Vector2I,
 ) -> [dynamic]i32 {
-	check_rect := toRect(self.position + direction, self.collider)
+	movement := &entity.movement.variant.(Actor)
+	if movement == nil {
+		return [dynamic]i32{}
+	}
+
+	check_rect := to_rect(entity, direction)
 
 	colliding_solids := [dynamic]i32{}
-	for gameEntity in solids {
-		solid := (&(gameEntity.movement.(Solid))) or_continue
-		solid_rect := toRect(solid.position, solid.collider)
+	for solid_entity in solids {
+		solid, ok := &(solid_entity.movement.variant.(Solid))
+		if !ok {
+			continue
+		}
+		solid_rect := to_rect(solid_entity)
 		if rl.CheckCollisionRecs(check_rect, solid_rect) {
-			append_elem(&colliding_solids, gameEntity.id)
+			append_elem(&colliding_solids, solid_entity.id)
 		}
 	}
 	return colliding_solids
 }
 
-toRect :: proc(position: Vector2I, collider: Vector4I) -> rl.Rectangle {
+to_rect :: proc(entity: ^GameEntity, offset: Vector2I = {0, 0}) -> rl.Rectangle {
 	return {
-		x = f32(position.x + collider.x),
-		y = f32(position.y + collider.y),
-		width = f32(collider.z),
-		height = f32(collider.w),
+		x = f32(entity.movement.position.x + entity.movement.collider.offset.x + offset.x),
+		y = f32(entity.movement.position.y + entity.movement.collider.offset.y + offset.y),
+		width = f32(entity.movement.collider.size.x),
+		height = f32(entity.movement.collider.size.y),
 	}
 }

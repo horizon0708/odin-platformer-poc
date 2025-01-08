@@ -46,13 +46,13 @@ updateRoutine :: proc(
 	step := routine.steps[routine.currentStep]
 	switch step in step {
 	case MoveToPosition:
-		if entity.position^ == step.to {
-			entity.direction^ = {0, 0}
+		if entity.movement.position == step.to {
+			entity.movement.direction = {0, 0}
 			nextRoutineStep(routine)
 		} else {
-			x := math.sign(f32(step.to.x - entity.position.x))
-			y := math.sign(f32(step.to.y - entity.position.y))
-			entity.direction^ = linalg.normalize0(rl.Vector2{x, y})
+			x := math.sign(f32(step.to.x - entity.movement.position.x))
+			y := math.sign(f32(step.to.y - entity.movement.position.y))
+			entity.movement.direction = linalg.normalize0(rl.Vector2{x, y})
 		}
 	case HoldPosition:
 		timerUpdate(&routine.timer, routine, nextRoutineStep)

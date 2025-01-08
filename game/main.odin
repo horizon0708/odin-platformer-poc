@@ -25,12 +25,12 @@ DebugOptions :: struct {
 }
 
 GameEntity :: struct {
-	id:           i32,
-	using shared: SharedState,
-	type:         TypeVariant,
-	movement:     MovementVariant,
-	input:        InputVariant,
-	routine:      RoutineVariant,
+	id:       i32,
+	// using shared: SharedState,
+	type:     TypeVariant,
+	movement: Movement,
+	input:    Input,
+	routine:  RoutineVariant,
 }
 
 Entity :: struct {
@@ -163,13 +163,6 @@ addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 	stored_entity.id = idCounter
 
 	initMovement(stored_entity)
-	initInput(stored_entity)
-
-	assert(stored_entity.position != nil)
-	assert(stored_entity.velocity != nil)
-	assert(stored_entity.direction != nil)
-	assert(stored_entity.jumpHeldDown != nil)
-	assert(stored_entity.facing != nil)
 	return idCounter, stored_entity
 }
 
@@ -219,52 +212,60 @@ draw :: proc() {
 	// rl.EndShaderMode()
 	for _, &entity in gameState.entities {
 		if gameState.debug.show_colliders {
-			switch &movement in entity.movement {
+			switch &movement in entity.movement.variant {
 			case Actor:
 				if player, ok := &entity.type.(Player); ok {
 					if isCoyoteTimeActive(&movement) {
-						rl.DrawCircle(movement.position.x, movement.position.y, 1.5, rl.RED)
+						rl.DrawCircle(
+							entity.movement.position.x,
+							entity.movement.position.y,
+							1.5,
+							rl.RED,
+						)
 					}
 
-					xCenter := (movement.position.x + (movement.collider.z) / 2)
+					xCenter := (entity.movement.position.x + (entity.movement.collider.size.x) / 2)
 					directionVector := DirectionVector
-					facingDirection := directionVector[movement.facing]
+					facingDirection := directionVector[entity.movement.facing]
 					rl.DrawCircle(
 						xCenter + facingDirection.x * 4,
-						movement.position.y + movement.collider.w / 2,
+						entity.movement.position.y + entity.movement.collider.size.x / 2,
 						1.5,
 						rl.ORANGE,
 					)
 
 					debug_text := fmt.tprintf(
-						"player velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\nmovement state: %v\n",
+						"player position: %v\nplayer velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\ncolliding_left: %v\ncolliding_right: %v\nmovement state: %v\n",
+						entity.movement.position,
 						rl.Vector2 {
-							math.round(movement.velocity.x),
-							math.round(movement.velocity.y),
+							math.round(entity.movement.velocity.x),
+							math.round(entity.movement.velocity.y),
 						},
 						movement.touching[.UP],
 						movement.touching[.DOWN],
-						movement.movementState,
+						movement.touching[.LEFT],
+						movement.touching[.RIGHT],
+						entity.movement.movementState,
 					)
 					ctext := strings.clone_to_cstring(debug_text)
-					textPosition := movement.position + {-100, -75}
+					textPosition := entity.movement.position + {-100, -75}
 					rl.DrawText(ctext, textPosition.x, textPosition.y, 1, rl.WHITE)
 				}
 
 				rl.DrawRectangle(
-					movement.position.x,
-					movement.position.y,
-					movement.collider.z,
-					movement.collider.w,
-					movement.colliderColor,
+					entity.movement.position.x,
+					entity.movement.position.y,
+					entity.movement.collider.size.x,
+					entity.movement.collider.size.y,
+					entity.movement.collider.color,
 				)
 			case Solid:
 				rl.DrawRectangle(
-					movement.position.x,
-					movement.position.y,
-					movement.collider.z,
-					movement.collider.w,
-					movement.colliderColor,
+					entity.movement.position.x,
+					entity.movement.position.y,
+					entity.movement.collider.size.x,
+					entity.movement.collider.size.y,
+					entity.movement.collider.color,
 				)
 			}
 		}
@@ -293,14 +294,4 @@ gameCamera :: proc() -> rl.Camera2D {
 
 uiCamera :: proc() -> rl.Camera2D {
 	return {zoom = f32(rl.GetScreenHeight()) / PIXEL_WINDOW_HEIGHT}
-}
-
-getSolids :: proc(gameState: ^GameState) -> [dynamic]^GameEntity {
-	solids := make([dynamic]^GameEntity)
-	for _, &entity in gameState.entities {
-		if solid, ok := &entity.movement.(Solid); ok {
-			append_elem(&solids, &entity)
-		}
-	}
-	return solids
 }

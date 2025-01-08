@@ -40,15 +40,10 @@ add_trigger :: proc(gameState: ^GameState, trigger: Trigger) {
 
 update_triggers :: proc(gameState: ^GameState) -> bool {
 	player := get_player().? or_return
-	movement := player.movement.(Actor) or_return
+	movement := player.movement.variant.(Actor) or_return
 
 	for _, &trigger in gameState.triggers {
-		player_rect := rl.Rectangle {
-			x      = f32(movement.position.x + movement.collider.x),
-			y      = f32(movement.position.y + movement.collider.y),
-			width  = f32(movement.collider.z),
-			height = f32(movement.collider.w),
-		}
+		player_rect := get_player_collider()
 		was_colliding := trigger.colliding
 		trigger.colliding = rl.CheckCollisionRecs(trigger.rect, player_rect)
 
@@ -78,7 +73,7 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	// 	position = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)},
 	// }
 	player := event.player
-	player.position^ = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)}
+	player.movement.position = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)}
 	fmt.printf("updated player %v\n\n", player)
 
 	id, added_player := addGameEntity(player)

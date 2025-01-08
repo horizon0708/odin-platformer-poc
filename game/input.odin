@@ -1,28 +1,31 @@
 package game
+
+import "core:fmt"
 import rl "vendor:raylib"
+
+Input :: struct {
+	variant: InputVariant,
+}
 
 InputVariant :: union #no_nil {
 	NoInput,
-	Input,
+	PlayerInput,
 }
 
-Input :: struct {
+PlayerInput :: struct {
 	jumpHeldDown:   bool,
 	jumpKeyPressed: bool,
 }
 
-NoInput :: struct {
-	jumpHeldDown: bool,
+NoInput :: struct {}
+
+jumpHeldDown :: proc(entity: ^GameEntity) -> bool {
+	if variant, ok := &entity.input.variant.(PlayerInput); ok {
+		return variant.jumpHeldDown
+	}
+	return false
 }
 
-initInput :: proc(entity: ^GameEntity) {
-	switch &input in entity.input {
-	case NoInput:
-		entity.jumpHeldDown = &input.jumpHeldDown
-	case Input:
-		entity.jumpHeldDown = &input.jumpHeldDown
-	}
-}
 
 updateInput :: proc(
 	entity: ^GameEntity,
@@ -31,7 +34,7 @@ updateInput :: proc(
 	onDashkeyPressed: proc(self: ^GameEntity) -> bool,
 	onFireKeyPressed: proc(self: ^GameEntity) -> bool,
 ) {
-	if input, ok := &entity.input.(Input); ok {
+	if input, ok := &entity.input.variant.(PlayerInput); ok {
 		directionalInput: rl.Vector2
 		if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
 			directionalInput.y -= 1
@@ -41,22 +44,22 @@ updateInput :: proc(
 		}
 		if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
 			directionalInput.x -= 1
-			entity.facing^ = .LEFT
+			entity.movement.facing = .LEFT
 		}
 		if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
 			directionalInput.x += 1
-			entity.facing^ = .RIGHT
+			entity.movement.facing = .RIGHT
 		}
 
 		input.jumpKeyPressed = jumpKeyPressed()
 
 		if input.jumpKeyPressed {
 			onJumpKeyPressed(entity)
-			entity.jumpHeldDown^ = true
+			input.jumpHeldDown = true
 		}
 
-		if entity.jumpHeldDown^ && jumpKeyReleased() {
-			entity.jumpHeldDown^ = false
+		if input.jumpHeldDown && jumpKeyReleased() {
+			input.jumpHeldDown = false
 		}
 
 		if dashKeyPressed() {
@@ -68,8 +71,8 @@ updateInput :: proc(
 		}
 
 		// no need to normalize as we separate horizontal and vertical movement
-		entity.direction^ = directionalInput
-		// input.directionalInput = linalg.normalize0(directionalInput)
+		// for the player
+		set_entity_direction(entity, directionalInput)
 	}
 }
 

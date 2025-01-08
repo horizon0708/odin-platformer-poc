@@ -150,10 +150,10 @@ load_int_grid :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 			if cell_id == 1 {
 				addGameEntity(
 					{
-						movement = Solid {
+						movement = {
 							position = position,
-							collider = {0, 0, i32(layer.grid_size), i32(layer.grid_size)},
-							colliderColor = rl.RED,
+							collider = {size = to_vector2i(layer.grid_size), color = rl.RED},
+							variant = Solid{},
 						},
 					},
 				)
