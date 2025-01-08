@@ -80,8 +80,11 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	load_level(gameState, event.level_id)
 
 	transition_trigger := &gameState.triggers[event.entity_id]
+	fmt.printf("transition_trigger: %v\n", transition_trigger)
 
 	player := event.player
+
+	set_debug_text("level", "last_transition_event", fmt.tprintf("%v", event.level_id))
 	sign := i32(math.sign(f32(player.movement.velocity.x)))
 	// offset the player to the left or right depending on their velocity
 	direction_to_push := getDirectionVector(event.exit_direction)

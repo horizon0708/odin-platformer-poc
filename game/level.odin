@@ -31,13 +31,8 @@ load_levels :: proc(world_file: string) -> map[string]ldtk.Level {
 
 load_level :: proc(gameState: ^GameState, level_id: Maybe(string) = nil) {
 	level_id_to_load := level_id.? or_else gameState.current_level_id
-
-	if level, ok := gameState.levels[level_id_to_load]; !ok {
-		unload_level(gameState)
-		gameState.current_level_id = level_id_to_load
-	}
-
 	level := gameState.levels[level_id_to_load]
+	gameState.current_level_id = level_id_to_load
 	// fmt.printf("Loading level: %s\n", level)
 	for layer in level.layer_instances {
 		switch layer.type {
@@ -78,11 +73,11 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 			if entity.grid.x == 0 {
 				exit_direction = .LEFT
 			} else if entity.grid.y == 0 {
-				exit_direction = .DOWN
+				exit_direction = .UP
 			} else if entity.grid.x == layer.c_width - 1 {
 				exit_direction = .RIGHT
 			} else if entity.grid.y == layer.c_height - 1 {
-				exit_direction = .UP
+				exit_direction = .DOWN
 			} else {
 				assert(false, "Invalid level exit position")
 			}
@@ -143,10 +138,6 @@ Level_Transition_Trigger :: struct {
 	position:      Vector2I,
 	collider_size: Vector2I,
 	next_level_id: string,
-}
-
-add_level_transition_trigger :: proc(gameState: ^GameState, trigger: Level_Transition_Trigger) {
-
 }
 
 

@@ -261,23 +261,27 @@ draw :: proc() {
 
 	if entity, ok := get_player().?; ok {
 		movement := entity.movement
-		actor := &movement.variant.(Actor)
+		if actor, ok := &movement.variant.(Actor); ok {
 
-		set_debug_text("movement", "position", fmt.tprintf("%v", entity.movement.position))
-		set_debug_text("movement", "velocity", fmt.tprintf("%v", entity.movement.velocity))
-		set_debug_text(
-			"movement",
-			"movementState",
-			fmt.tprintf("%v", entity.movement.movementState),
-		)
-		set_debug_text("movement", "facing", fmt.tprintf("%v", entity.movement.facing))
-		set_debug_text("movement", "touching", fmt.tprintf("%v", actor.touching))
+			// movement
+			set_debug_text("movement", "position", fmt.tprintf("%v", entity.movement.position))
+			set_debug_text("movement", "velocity", fmt.tprintf("%v", entity.movement.velocity))
+			set_debug_text(
+				"movement",
+				"movementState",
+				fmt.tprintf("%v", entity.movement.movementState),
+			)
+			set_debug_text("movement", "facing", fmt.tprintf("%v", entity.movement.facing))
+			set_debug_text("movement", "touching", fmt.tprintf("%v", actor.touching))
 
 
-		ctext, builder := build_debug_text(&gameState.debug)
-		defer strings.builder_destroy(&builder)
-		textPosition := Vector2I{5, 5}
-		rl.DrawText(ctext, textPosition.x, textPosition.y, 15, rl.WHITE)
+			// level
+			set_debug_text("level", "level_id", fmt.tprintf("%v", gameState.current_level_id))
+			ctext, builder := build_debug_text(&gameState.debug)
+			defer strings.builder_destroy(&builder)
+			textPosition := Vector2I{5, 5}
+			rl.DrawText(ctext, textPosition.x, textPosition.y, 15, rl.WHITE)
+		}
 	}
 
 	rl.EndMode2D()
