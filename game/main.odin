@@ -35,7 +35,7 @@ Entity :: struct {
 }
 
 GameState :: struct {
-	player:           ^GameEntity,
+	player:           GameEntity,
 	debug:            DebugOptions,
 	entities:         map[i32]GameEntity,
 	trails:           [dynamic]Trail,
@@ -166,15 +166,16 @@ addGameEntity :: proc(entity: GameEntity) -> (i32, ^GameEntity) {
 update :: proc() {
 	dt := rl.GetFrameTime()
 	updateTrails(gameState)
+	updateInput(
+		&gameState.player,
+		gameState,
+		onJumpKeyPressed = onJumpKeyPressed,
+		onDashkeyPressed = onDashkeyPressed,
+		onFireKeyPressed = onFireKeyPressed,
+	)
+	updateRoutine(&gameState.player, gameState)
+	updateMovement(&gameState.player, gameState)
 	for _, &entity in gameState.entities {
-		// update input
-		updateInput(
-			&entity,
-			gameState,
-			onJumpKeyPressed = onJumpKeyPressed,
-			onDashkeyPressed = onDashkeyPressed,
-			onFireKeyPressed = onFireKeyPressed,
-		)
 		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
 	}
@@ -207,6 +208,35 @@ draw :: proc() {
 	// rl.BeginShaderMode(shader)
 	drawTrails(gameState)
 	// rl.EndShaderMode()
+
+	player := get_player()
+	if player != nil {
+		if actor, ok := &player.movement.variant.(Actor); ok {
+			if isCoyoteTimeActive(actor) {
+				rl.DrawCircle(player.movement.position.x, player.movement.position.y, 1.5, rl.RED)
+			}
+
+			xCenter := (player.movement.position.x + (player.movement.collider.size.x) / 2)
+			directionVector := DirectionVector
+			facingDirection := directionVector[player.movement.facing]
+			rl.DrawCircle(
+				xCenter + facingDirection.x * 4,
+				player.movement.position.y + player.movement.collider.size.x / 2,
+				1.5,
+				rl.ORANGE,
+			)
+
+		}
+
+		rl.DrawRectangle(
+			player.movement.position.x,
+			player.movement.position.y,
+			player.movement.collider.size.x,
+			player.movement.collider.size.y,
+			player.movement.collider.color,
+		)
+	}
+
 	for _, &entity in gameState.entities {
 		if gameState.debug.show_colliders {
 			switch &movement in entity.movement.variant {
@@ -259,7 +289,7 @@ draw :: proc() {
 	rl.EndMode2D()
 	rl.BeginMode2D(uiCamera())
 
-	if entity, ok := get_player().?; ok {
+	if entity := get_player(); entity != nil {
 		movement := entity.movement
 		if actor, ok := &movement.variant.(Actor); ok {
 

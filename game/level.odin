@@ -63,46 +63,47 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 		case "Player_Spawn":
 			addPlayerSpawn(gameState, PlayerSpawn{position = position})
 		case "Level_Entrance":
-			field_instance := entity.field_instances[0]
-			value, ok := get_entity_reference_infos(field_instance.value)
-			if !ok {
-				assert(false, "Failed to get entity reference infos")
-				continue
-			}
-			exit_direction: Direction
-			if entity.grid.x == 0 {
-				exit_direction = .LEFT
-			} else if entity.grid.y == 0 {
-				exit_direction = .UP
-			} else if entity.grid.x == layer.c_width - 1 {
-				exit_direction = .RIGHT
-			} else if entity.grid.y == layer.c_height - 1 {
-				exit_direction = .DOWN
-			} else {
-				assert(false, "Invalid level exit position")
-			}
+			for field_instance in entity.field_instances {
+				value, ok := get_entity_reference_infos(field_instance.value)
+				if !ok {
+					assert(false, "Failed to get entity reference infos")
+					continue
+				}
+				exit_direction: Direction
+				if entity.grid.x == 0 {
+					exit_direction = .LEFT
+				} else if entity.grid.y == 0 {
+					exit_direction = .UP
+				} else if entity.grid.x == layer.c_width - 1 {
+					exit_direction = .RIGHT
+				} else if entity.grid.y == layer.c_height - 1 {
+					exit_direction = .DOWN
+				} else {
+					assert(false, "Invalid level exit position")
+				}
 
-			add_trigger(
-				gameState,
-				Trigger {
-					id = entity.iid,
-					rect = {
-						x = f32(position.x),
-						y = f32(position.y),
-						width = f32(entity.width),
-						height = f32(entity.height),
+				add_trigger(
+					gameState,
+					Trigger {
+						id = entity.iid,
+						rect = {
+							x = f32(position.x),
+							y = f32(position.y),
+							width = f32(entity.width),
+							height = f32(entity.height),
+						},
+						event = Level_Transition {
+							entity_id = value.entity_iid,
+							level_id = value.level_iid,
+							world_id = value.world_iid,
+							exit_direction = exit_direction,
+						},
 					},
-					event = Level_Transition {
-						entity_id = value.entity_iid,
-						level_id = value.level_iid,
-						world_id = value.world_iid,
-						exit_direction = exit_direction,
-					},
-				},
-			)
+				)
 
 
-			fmt.printf("Level_Entrance: %v\n", value)
+				fmt.printf("Level_Entrance: %v\n\n", value)
+			}
 		case:
 			assert(false, fmt.tprintf("Unknown entity: %s", entity.identifier))
 		}
@@ -169,4 +170,5 @@ load_int_grid :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 
 unload_level :: proc(gameState: ^GameState) {
 	clear(&gameState.entities)
+	clear(&gameState.triggers)
 }

@@ -20,7 +20,6 @@ Level_Transition :: struct {
 	player_offset:  rl.Vector2,
 	// player state when they enter, so we know where to move them 
 	// and copy over their state in the new level
-	player:         GameEntity,
 
 	// direction to push player in 
 	// once they are teleported to the new level
@@ -50,7 +49,7 @@ add_trigger :: proc(gameState: ^GameState, trigger: Trigger) {
 }
 
 update_triggers :: proc(gameState: ^GameState) -> bool {
-	player := get_player().? or_return
+	player := &gameState.player
 	movement := player.movement.variant.(Actor) or_return
 
 	for _, &trigger in gameState.triggers {
@@ -67,7 +66,6 @@ update_triggers :: proc(gameState: ^GameState) -> bool {
 			switch &event in trigger.event {
 			case Level_Transition:
 				event.player_offset = player_offset
-				event.player = player^
 				on_level_transition(gameState, event)
 			}
 		}
@@ -75,17 +73,18 @@ update_triggers :: proc(gameState: ^GameState) -> bool {
 	return true
 }
 
+
 on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	unload_level(gameState)
 	load_level(gameState, event.level_id)
 
 	transition_trigger := &gameState.triggers[event.entity_id]
-	fmt.printf("transition_trigger: %v\n", transition_trigger)
+	fmt.printf("transition_trigger: %v\n\n", transition_trigger)
 
-	player := event.player
-
-	set_debug_text("level", "last_transition_event", fmt.tprintf("%v", event.level_id))
-	sign := i32(math.sign(f32(player.movement.velocity.x)))
+	next_level := gameState.levels[event.level_id]
+	set_debug_text("level", "next_level", fmt.tprintf("%v", next_level.identifier))
+	set_debug_text("level", "exit_direction", fmt.tprintf("%v", event.exit_direction))
+	sign := i32(math.sign(f32(gameState.player.movement.velocity.x)))
 	// offset the player to the left or right depending on their velocity
 	direction_to_push := getDirectionVector(event.exit_direction)
 	player_offset_x := event.player_offset.x
@@ -98,11 +97,12 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 		player_offset_y = 0
 	}
 
-	player.movement.position = {
-		i32(transition_trigger.rect.x) + direction_to_push.x * TILE_SIZE + i32(player_offset_x),
-		i32(transition_trigger.rect.y) + direction_to_push.y * TILE_SIZE + i32(player_offset_y),
+	gameState.player.movement.position = {
+		i32(transition_trigger.rect.x) +
+		direction_to_push.x * gameState.player.movement.collider.size.x +
+		i32(player_offset_x),
+		i32(transition_trigger.rect.y) +
+		direction_to_push.y * gameState.player.movement.collider.size.y +
+		i32(player_offset_y),
 	}
-
-	id, added_player := addGameEntity(player)
-	gameState.player = added_player
 }
