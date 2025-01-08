@@ -20,9 +20,6 @@ Game_Memory :: struct {
 	some_number: int,
 }
 
-DebugOptions :: struct {
-	show_colliders: bool,
-}
 
 GameEntity :: struct {
 	id:       i32,
@@ -59,7 +56,7 @@ main :: proc() {
 	rl.GetTime()
 	gameState = new(GameState)
 	gameState^ = GameState {
-		debug = {show_colliders = true},
+		debug = {show_colliders = true, debug_text_sections = {}},
 		levels = load_levels(WORLD_FILE),
 		current_level_id = START_LEVEL_ID,
 	}
@@ -266,21 +263,20 @@ draw :: proc() {
 		movement := entity.movement
 		actor := &movement.variant.(Actor)
 
-		debug_text := fmt.tprintf(
-			"player position: %v\nplayer velocity: %v\ncolliding_top: %v\ncolliding_bottom: %v\ncolliding_left: %v\ncolliding_right: %v\nmovement state: %v\n",
-			entity.movement.position,
-			rl.Vector2 {
-				math.round(entity.movement.velocity.x),
-				math.round(entity.movement.velocity.y),
-			},
-			actor.touching[.UP],
-			actor.touching[.DOWN],
-			actor.touching[.LEFT],
-			actor.touching[.RIGHT],
-			entity.movement.movementState,
+		set_debug_text("movement", "position", fmt.tprintf("%v", entity.movement.position))
+		set_debug_text("movement", "velocity", fmt.tprintf("%v", entity.movement.velocity))
+		set_debug_text(
+			"movement",
+			"movementState",
+			fmt.tprintf("%v", entity.movement.movementState),
 		)
-		ctext := strings.clone_to_cstring(debug_text)
-		textPosition := Vector2I{0, 0}
+		set_debug_text("movement", "facing", fmt.tprintf("%v", entity.movement.facing))
+		set_debug_text("movement", "touching", fmt.tprintf("%v", actor.touching))
+
+
+		ctext, builder := build_debug_text(&gameState.debug)
+		defer strings.builder_destroy(&builder)
+		textPosition := Vector2I{5, 5}
 		rl.DrawText(ctext, textPosition.x, textPosition.y, 15, rl.WHITE)
 	}
 

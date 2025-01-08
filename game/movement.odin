@@ -423,7 +423,6 @@ moveActorX :: proc(
 				movement.position.x += sign
 				move -= sign
 			} else {
-				fmt.printf("colliding solids %v\n", colliding_solids)
 				if onCollision != nil {
 					onCollision(entitiy.id)
 				}
