@@ -180,8 +180,8 @@ update :: proc() {
 		)
 		updateRoutine(&entity, gameState)
 		updateMovement(&entity, gameState)
-		update_triggers(gameState)
 	}
+	update_triggers(gameState)
 
 }
 

@@ -2,6 +2,7 @@ package game
 
 import ldtk "../ldtk"
 import fmt "core:fmt"
+import math "core:math"
 import rl "vendor:raylib"
 Trigger_Event :: union {
 	Level_Transition,
@@ -9,17 +10,27 @@ Trigger_Event :: union {
 
 Level_Transition :: struct {
 	// linked entity 
-	entity_id:     string,
+	entity_id:      string,
 	// level the linked entity is in
-	level_id:      string,
+	level_id:       string,
 	// world the linked entity is in
-	world_id:      string,
+	world_id:       string,
 
 	// player offset relative to the trigger when they enter
-	player_offset: rl.Vector2,
+	player_offset:  rl.Vector2,
 	// player state when they enter, so we know where to move them 
 	// and copy over their state in the new level
-	player:        GameEntity,
+	player:         GameEntity,
+
+	// direction to push player in 
+	// once they are teleported to the new level
+	// atm we assume that all exits are on the edge of the level
+	// so we use its grid position to determine the direction
+	//
+	// e.g. level is 10x10
+	// - if exit is at (2, 9), push player right 
+	// - if exit is at (9, 2), push player down
+	exit_direction: Direction,
 }
 
 Level_Entrance :: struct {
@@ -69,15 +80,30 @@ on_level_transition :: proc(gameState: ^GameState, event: Level_Transition) {
 	load_level(gameState, event.level_id)
 
 	transition_trigger := &gameState.triggers[event.entity_id]
-	// gameState.current_spawn = PlayerSpawn {
-	// 	position = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)},
-	// }
+
 	player := event.player
-	player.movement.position = {i32(transition_trigger.rect.x), i32(transition_trigger.rect.y)}
-	fmt.printf("updated player %v\n\n", player)
+	sign := i32(math.sign(f32(player.movement.velocity.x)))
+	// offset the player to the left or right depending on their velocity
+	direction_to_push := getDirectionVector(event.exit_direction)
+	fmt.printf("direction_to_push %v\n", direction_to_push)
+	player_offset_x := event.player_offset.x
+	if direction_to_push.x != 0 {
+		player_offset_x = 0
+	}
+
+	player_offset_y := event.player_offset.y
+	if direction_to_push.y != 0 {
+		player_offset_y = 0
+	}
+
+	player.movement.position = {
+		i32(transition_trigger.rect.x) + direction_to_push.x * TILE_SIZE + i32(player_offset_x),
+		i32(transition_trigger.rect.y) + direction_to_push.y * TILE_SIZE + i32(player_offset_y),
+	}
+	// fmt.printf("updated player %v\n\n", player)
 
 	id, added_player := addGameEntity(player)
-	fmt.printf("trigger %v\n\n", transition_trigger)
-	fmt.printf("added player %v\n\n", added_player)
+	// fmt.printf("trigger %v\n\n", transition_trigger)
+	// fmt.printf("added player %v\n\n", added_player)
 	gameState.player = added_player
 }

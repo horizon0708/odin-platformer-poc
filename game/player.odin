@@ -15,12 +15,7 @@ get_player_position :: proc() -> rl.Vector2 {
 
 get_player_collider :: proc() -> rl.Rectangle {
 	if player, ok := get_player().?; ok {
-		return {
-			f32(player.movement.position.x + player.movement.collider.offset.x),
-			f32(player.movement.position.y + player.movement.collider.offset.y),
-			f32(player.movement.collider.size.x),
-			f32(player.movement.collider.size.y),
-		}
+		return to_rect(player)
 	}
 	return {0, 0, 0, 0}
 }

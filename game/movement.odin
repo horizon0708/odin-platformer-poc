@@ -457,8 +457,6 @@ moveActorY :: proc(
 			colliding_solids := get_colliding_solid_ids(self, solids, {0, sign})
 			if len(colliding_solids) == 0 {
 				self.movement.position.y += sign
-				fmt.printf("position %v\n", self.movement.position)
-
 				move -= sign
 			} else {
 				// on hitting something, y velocity is reset so that

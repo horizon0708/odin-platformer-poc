@@ -74,6 +74,18 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 				assert(false, "Failed to get entity reference infos")
 				continue
 			}
+			exit_direction: Direction
+			if entity.grid.x == 0 {
+				exit_direction = .LEFT
+			} else if entity.grid.y == 0 {
+				exit_direction = .DOWN
+			} else if entity.grid.x == layer.c_width - 1 {
+				exit_direction = .RIGHT
+			} else if entity.grid.y == layer.c_height - 1 {
+				exit_direction = .UP
+			} else {
+				assert(false, "Invalid level exit position")
+			}
 
 			add_trigger(
 				gameState,
@@ -89,6 +101,7 @@ load_entities :: proc(gameState: ^GameState, layer: ldtk.Layer_Instance) {
 						entity_id = value.entity_iid,
 						level_id = value.level_iid,
 						world_id = value.world_iid,
+						exit_direction = exit_direction,
 					},
 				},
 			)
