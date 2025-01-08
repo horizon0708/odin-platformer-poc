@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "command": "",
+  "args": [],
+  "tasks": [
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "odin build ./game -debug -out:bin/debug",
+      "group": "build"
+    }
+  ]
+}
